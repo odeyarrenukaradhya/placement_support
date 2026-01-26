@@ -15,8 +15,12 @@
     "install:all": "npm install"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "4.0.0-alpha.25",
+    "@types/nodemailer": "^7.0.5",
     "babel-plugin-react-compiler": "1.0.0",
-    "tailwindcss": "4.0.0-alpha.25",
-    "@tailwindcss/postcss": "4.0.0-alpha.25"
+    "tailwindcss": "4.0.0-alpha.25"
+  },
+  "dependencies": {
+    "nodemailer": "^7.0.12"
   }
 }
