@@ -5,35 +5,43 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 
-export default function LoginPage() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+export default function StudentLoginPage() {
   const router = useRouter();
 
+  // STEP 1: credentials
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  // STEP 2: otp
+  const [otp, setOtp] = useState('');
+  const [otpId, setOtpId] = useState(null);
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  /* ===========================
+     STEP 1: EMAIL + PASSWORD
+  =========================== */
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      const data = await apiFetch('/auth/login', {
+      const res = await apiFetch('/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ 
-          email: email.trim(), 
-          password: password.trim() 
+        body: JSON.stringify({
+          email: email.trim(),
+          password: password.trim(),
         }),
       });
 
-      if (data.user.role !== 'student') {
-        throw new Error('Access denied: You are not a student');
+      if (res.status !== 'OTP_REQUIRED') {
+        throw new Error('OTP not initiated');
       }
 
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-      document.cookie = `token=${data.token}; path=/; max-age=86400; SameSite=Lax`;
-      router.push('/dashboard');
+      // OTP session started
+      setOtpId(res.otpId);
     } catch (err) {
       setError(err.message || 'Login failed');
     } finally {
@@ -41,59 +49,122 @@ export default function LoginPage() {
     }
   };
 
+  /* ===========================
+     STEP 2: OTP VERIFICATION
+  =========================== */
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const res = await apiFetch('/auth/verify-otp', {
+        method: 'POST',
+        body: JSON.stringify({ otpId, otp }),
+      });
+
+      if (res.user.role !== 'student') {
+        throw new Error('Access denied');
+      }
+
+      // Store session
+      localStorage.setItem('token', res.token);
+      localStorage.setItem('user', JSON.stringify(res.user));
+      document.cookie = `token=${res.token}; path=/; max-age=86400; SameSite=Lax`;
+
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err.message || 'OTP verification failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12 sm:px-6 lg:px-8">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-12">
       <div className="w-full max-w-md space-y-8">
         <div>
-          <h2 className="mt-6 text-center text-3xl font-bold tracking-tight text-gray-900">
+          <h2 className="text-center text-3xl font-bold text-gray-900">
             Student Login
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Placement Guidance Platform
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          {error && (
-            <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-          <div className="-space-y-px rounded-md shadow-sm">
+
+        {error && (
+          <div className="rounded-md bg-red-50 p-4 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        {!otpId ? (
+          /* ===========================
+             EMAIL + PASSWORD FORM
+          =========================== */
+          <form className="space-y-6" onSubmit={handleLogin}>
             <div>
               <input
                 type="email"
                 required
-                className="relative block w-full rounded-t-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 px-3"
                 placeholder="Email address"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                className="block w-full rounded-md border px-3 py-2"
               />
             </div>
+
             <div>
               <input
                 type="password"
                 required
-                className="relative block w-full rounded-b-md border-0 py-1.5 text-gray-900 ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:z-10 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm sm:leading-6 px-3"
                 placeholder="Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                className="block w-full rounded-md border px-3 py-2"
               />
             </div>
-          </div>
 
-          <div>
             <button
               type="submit"
               disabled={loading}
-              className="group relative flex w-full justify-center rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 disabled:opacity-50"
+              className="w-full rounded-md bg-blue-600 py-2 text-white font-semibold hover:bg-blue-500 disabled:opacity-50"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loading ? 'Sending OTP…' : 'Sign in'}
             </button>
-          </div>
-        </form>
+          </form>
+        ) : (
+          /* ===========================
+             OTP FORM
+          =========================== */
+          <form className="space-y-6" onSubmit={handleVerifyOtp}>
+            <div>
+              <input
+                type="text"
+                required
+                placeholder="Enter OTP"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                className="block w-full rounded-md border px-3 py-2"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-md bg-green-600 py-2 text-white font-semibold hover:bg-green-500 disabled:opacity-50"
+            >
+              {loading ? 'Verifying…' : 'Verify OTP'}
+            </button>
+          </form>
+        )}
+
         <div className="text-center">
-          <Link href="/signup" className="text-sm font-medium text-blue-600 hover:text-blue-500">
-            Don't have an account? Sign up
+          <Link
+            href="/signup"
+            className="text-sm font-medium text-blue-600 hover:text-blue-500"
+          >
+            Don&apos;t have an account? Sign up
           </Link>
         </div>
       </div>
