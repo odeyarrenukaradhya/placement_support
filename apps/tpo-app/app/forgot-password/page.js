@@ -113,7 +113,7 @@ export default function ForgotPasswordPage() {
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-blue-100 rounded-full opacity-50 blur-3xl"></div>
 
         <div className="relative z-10 flex flex-col items-center">
-            <img 
+          <img 
               src="https://xeric-apricot-mkv8syypsk.edgeone.app/1.jpg" 
               alt="Reset Illustration" 
               className="max-w-md w-full max-h-[65vh] object-contain drop-shadow-2xl rounded-3xl"
@@ -172,7 +172,7 @@ export default function ForgotPasswordPage() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="block w-full pl-11 pr-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-base text-gray-900 font-bold outline-none transition-all shadow-sm placeholder:text-gray-400"
-                      placeholder="student@kit.edu"
+                      placeholder="tpo@kit.edu"
                     />
                   </div>
                 </div>
