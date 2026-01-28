@@ -14,6 +14,7 @@ import integrityRouter from './routes/integrity';
 import collegesRouter from './routes/colleges';
 import adminRouter from './routes/admin';
 import analyticsRouter from './routes/analytics';
+import { startOTPCleanupScheduler } from './utils/otpCleanup';
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || 5000;
@@ -38,4 +39,7 @@ app.get('/health', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
+  
+  // Start OTP cleanup scheduler
+  startOTPCleanupScheduler();
 });

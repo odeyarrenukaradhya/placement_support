@@ -304,18 +304,25 @@ router.post('/verify-reset-otp', async (req: any, res: any) => {
        return res.status(401).json({ error: 'Invalid OTP' });
     }
 
-    // Mark used
-    await query('UPDATE login_otps SET used = true WHERE id = $1', [otpId]);
-
-    // Reset rate limiting after successful verification
-    await query(
-      'UPDATE users SET otp_request_attempts = 0, otp_blocked_until = NULL WHERE id = $1',
-      [record.user_id]
-    );
+    // Use a transaction to update both tables atomically and efficiently
+    await query('BEGIN');
+    try {
+      // Mark OTP as used
+      await query('UPDATE login_otps SET used = true WHERE id = $1', [otpId]);
+      
+      // Reset rate limiting after successful verification
+      await query(
+        'UPDATE users SET otp_request_attempts = 0, otp_blocked_until = NULL WHERE id = $1',
+        [record.user_id]
+      );
+      
+      await query('COMMIT');
+    } catch (txErr) {
+      await query('ROLLBACK');
+      throw txErr;
+    }
 
     // Issue short-lived reset token
-    // We reuse the JWT mechanism but maybe add a special scope/role claim? 
-    // For simplicity, let's just sign a token with a 'reset_password' purpose.
     const resetToken = jwt.sign(
       { id: record.user_id, purpose: 'reset_password' },
       JWT_SECRET,

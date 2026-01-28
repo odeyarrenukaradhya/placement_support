@@ -4,7 +4,8 @@ export function middleware(request) {
   const token = request.cookies.get('token')?.value;
   const { pathname } = request.nextUrl;
 
-  if (pathname === '/login') {
+  // Allow access to login and forgot-password pages without authentication
+  if (pathname === '/login' || pathname === '/forgot-password') {
     return NextResponse.next();
   }
 

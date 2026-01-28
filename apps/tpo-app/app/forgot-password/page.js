@@ -284,7 +284,7 @@ export default function ForgotPasswordPage() {
           {/* Footer links */}
           <div className="mt-6 flex flex-col items-center gap-2 border-t border-gray-100 pt-4 shrink-0">
             <Link href="/login" className="text-xs font-bold text-blue-600 hover:underline">
-              Back to Student Login
+              Back to TPO Login
             </Link>
           </div>
           
