@@ -72,7 +72,7 @@ export default function StudentLoginPage() {
         <div className="relative z-10 flex flex-col items-center">
             {/* max-h-[45vh] ensures the image shrinks if the screen height is low */}
             <img 
-              src="https://determined-amaranth-umwtzpv24t.edgeone.app/upscalemedia-transformed.jpg" 
+              src="https://lh3.googleusercontent.com/u/0/d/1ZA_M9T8KK_HTabxlwIDr41wHD7e7RWGc" 
               alt="Login Illustration" 
               className="max-w-md w-full max-h-[65vh] object-contain drop-shadow-2xl rounded-3xl"
             />

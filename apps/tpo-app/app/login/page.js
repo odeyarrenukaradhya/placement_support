@@ -72,7 +72,7 @@ export default function TPOLoginPage() {
         <div className="relative z-10 flex flex-col items-center">
             {/* Swapped Image for TPO Context */}
             <img 
-              src="https://medical-gray-txqchcmi0i.edgeone.app/upscalemedia-transformed.jpeg" 
+              src="https://lh3.googleusercontent.com/u/0/d/1SFFX-jM9BDZeY-lA02nWc-nzqmcGgQU8" 
               alt="TPO Illustration" 
               className="max-w-md w-full max-h-[65vh] object-contain drop-shadow-2xl rounded-3xl"
             />

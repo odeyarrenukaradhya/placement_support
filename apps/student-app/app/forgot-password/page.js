@@ -117,7 +117,7 @@ export default function ForgotPasswordPage() {
 
         <div className="relative z-10 flex flex-col items-center">
             <img 
-              src="https://xeric-apricot-mkv8syypsk.edgeone.app/1.jpg" 
+              src="https://lh3.googleusercontent.com/u/0/d/1ysdqL_ctFSrS1X_J6WonTvcHa5hBipE3" 
               alt="Reset Illustration" 
               className="max-w-md w-full max-h-[65vh] object-contain drop-shadow-2xl rounded-3xl"
             />
