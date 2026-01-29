@@ -2,7 +2,6 @@ import express from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { query } from '../db';
-import { authenticateJWT, authorizeRoles } from '../middleware/auth';
 import { generateOTP, hashOTP } from '../utils/otp';
 import { sendOTPEmail, sendPasswordResetEmail } from '../utils/mailer';
 
@@ -86,25 +85,14 @@ router.post('/login', async (req, res) => {
       });
     }
 
-    const lastOtp = await query(
-      `SELECT created_at FROM login_otps
+    // ✅ Only expire old OTPs, do NOT nuke active ones
+    await query(
+      `UPDATE login_otps
+       SET used = true
        WHERE user_id = $1
-       ORDER BY created_at DESC
-       LIMIT 1`,
+         AND expires_at < NOW()`,
       [user.id]
     );
-
-    if (lastOtp.rows.length) {
-      const diff = Date.now() - new Date(lastOtp.rows[0].created_at).getTime();
-      if (diff < 15000) {
-        return res.status(429).json({
-          error: 'Please wait before requesting OTP',
-          retry_after_seconds: Math.ceil((15000 - diff) / 1000)
-        });
-      }
-    }
-
-    await query('UPDATE login_otps SET used = true WHERE user_id = $1', [user.id]);
 
     const otp = generateOTP();
     const otpHash = hashOTP(otp);
@@ -132,7 +120,22 @@ router.post('/verify-otp', async (req, res) => {
   const { otpId, otp } = req.body;
 
   try {
-    const r = await query('SELECT * FROM login_otps WHERE id = $1', [otpId]);
+    const r = await query(
+      `
+      SELECT *
+      FROM login_otps
+      WHERE id = $1
+        AND used = false
+        AND expires_at > NOW()
+        AND created_at = (
+          SELECT MAX(created_at)
+          FROM login_otps
+          WHERE user_id = login_otps.user_id
+        )
+      `,
+      [otpId]
+    );
+
     if (!r.rows.length) {
       return res.status(400).json({ error: 'Invalid OTP' });
     }
@@ -147,24 +150,16 @@ router.post('/verify-otp', async (req, res) => {
       });
     }
 
-    if (record.used) {
-      return res.status(400).json({ error: 'OTP already used' });
-    }
-
-    if (new Date(record.expires_at) < new Date()) {
-      return res.status(410).json({ error: 'OTP expired' });
-    }
-
     if (hashOTP(otp) !== record.otp_hash) {
       const f = await query(
-        `UPDATE users
-         SET failed_login_attempts = failed_login_attempts + 1
+        `UPDATE login_otps
+         SET attempts = attempts + 1
          WHERE id = $1
-         RETURNING failed_login_attempts`,
-        [record.user_id]
+         RETURNING attempts`,
+        [otpId]
       );
 
-      if (f.rows[0].failed_login_attempts >= 3) {
+      if (f.rows[0].attempts >= 3) {
         await query(
           `UPDATE users
            SET locked_until = NOW() + INTERVAL '15 minutes'
@@ -206,6 +201,165 @@ router.post('/verify-otp', async (req, res) => {
     res.json({ user: u.rows[0], token });
   } catch {
     res.status(500).json({ error: 'OTP verification failed' });
+  }
+});
+
+/* ======================================================
+   FORGOT PASSWORD → REQUEST OTP
+====================================================== */
+router.post('/request-password-reset', async (req, res) => {
+  const email = req.body.email?.trim().toLowerCase();
+
+  try {
+    const r = await query('SELECT id FROM users WHERE email = $1', [email]);
+
+    if (!r.rows.length) {
+      return res.json({ otpId: 'simulation' });
+    }
+
+    const userId = r.rows[0].id;
+
+    const lockRemaining = await getOtpLockRemaining(userId);
+    if (lockRemaining) {
+      return res.status(429).json({
+        error: 'Too many OTP attempts',
+        retry_after_seconds: lockRemaining
+      });
+    }
+
+    // ✅ Only expire old OTPs
+    await query(
+      `UPDATE login_otps
+       SET used = true
+       WHERE user_id = $1
+         AND expires_at < NOW()`,
+      [userId]
+    );
+
+    const otp = generateOTP();
+    const otpHash = hashOTP(otp);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
+
+    const otpRes = await query(
+      `INSERT INTO login_otps (user_id, otp_hash, expires_at)
+       VALUES ($1, $2, $3)
+       RETURNING id`,
+      [userId, otpHash, expiresAt]
+    );
+
+    sendPasswordResetEmail(email, otp).catch(console.error);
+
+    res.json({ otpId: otpRes.rows[0].id });
+  } catch {
+    res.status(500).json({ error: 'Failed to request password reset' });
+  }
+});
+
+/* ======================================================
+   VERIFY RESET OTP
+====================================================== */
+router.post('/verify-reset-otp', async (req, res) => {
+  const { otpId, otp } = req.body;
+
+  try {
+    const r = await query(
+      `
+      SELECT *
+      FROM login_otps
+      WHERE id = $1
+        AND used = false
+        AND expires_at > NOW()
+        AND created_at = (
+          SELECT MAX(created_at)
+          FROM login_otps
+          WHERE user_id = login_otps.user_id
+        )
+      `,
+      [otpId]
+    );
+
+    if (!r.rows.length) {
+      return res.status(400).json({ error: 'Invalid OTP' });
+    }
+
+    const record = r.rows[0];
+
+    if (hashOTP(otp) !== record.otp_hash) {
+      const f = await query(
+        `UPDATE login_otps
+         SET attempts = attempts + 1
+         WHERE id = $1
+         RETURNING attempts`,
+        [otpId]
+      );
+
+      if (f.rows[0].attempts >= 3) {
+        await query(
+          `UPDATE users
+           SET locked_until = NOW() + INTERVAL '15 minutes'
+           WHERE id = $1`,
+          [record.user_id]
+        );
+
+        return res.status(429).json({
+          error: 'Too many wrong OTP attempts',
+          retry_after_seconds: 15 * 60
+        });
+      }
+
+      return res.status(401).json({ error: 'Invalid OTP' });
+    }
+
+    await query('UPDATE login_otps SET used = true WHERE id = $1', [otpId]);
+
+    // ✅ Clear user lock after successful reset OTP
+    await query(
+      `UPDATE users
+       SET failed_login_attempts = 0,
+           locked_until = NULL
+       WHERE id = $1`,
+      [record.user_id]
+    );
+
+    const resetToken = jwt.sign(
+      { userId: record.user_id, type: 'password_reset' },
+      JWT_SECRET,
+      { expiresIn: '10m' }
+    );
+
+    res.json({ resetToken });
+  } catch {
+    res.status(500).json({ error: 'OTP verification failed' });
+  }
+});
+
+/* ======================================================
+   RESET PASSWORD
+====================================================== */
+router.post('/reset-password', async (req, res) => {
+  const { resetToken, newPassword } = req.body;
+
+  try {
+    const decoded: any = jwt.verify(resetToken, JWT_SECRET);
+
+    if (decoded.type !== 'password_reset') {
+      return res.status(403).json({ error: 'Invalid reset token' });
+    }
+
+    const hash = await bcrypt.hash(newPassword, 10);
+
+    await query(
+      `UPDATE users
+       SET password_hash = $1,
+           failed_login_attempts = 0,
+           locked_until = NULL
+       WHERE id = $2`,
+      [hash, decoded.userId]
+    );
+
+    res.json({ status: 'PASSWORD_RESET_SUCCESS' });
+  } catch {
+    res.status(401).json({ error: 'Invalid or expired reset token' });
   }
 });
 

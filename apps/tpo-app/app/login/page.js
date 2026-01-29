@@ -1,10 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 import { Mail, Lock, Eye, EyeOff, ShieldCheck, ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+
+/* 🔒 OTP LOCK (LOGIC ONLY) */
+const LOCK_KEY = 'otp_lock_until_tpo';
+
+function setOtpLock(seconds) {
+  const until = Date.now() + seconds * 1000;
+  localStorage.setItem(LOCK_KEY, until.toString());
+}
+
+function getOtpLockRemaining() {
+  const until = localStorage.getItem(LOCK_KEY);
+  if (!until) return null;
+  const remaining = Math.ceil((+until - Date.now()) / 1000);
+  return remaining > 0 ? remaining : null;
+}
 
 export default function TPOLoginPage() {
   const router = useRouter();
@@ -15,9 +30,42 @@ export default function TPOLoginPage() {
   const [otpId, setOtpId] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [lockSeconds, setLockSeconds] = useState(null);
+
+  /* 🔒 Restore lock on mount */
+  useEffect(() => {
+    const remaining = getOtpLockRemaining();
+    if (remaining) setLockSeconds(remaining);
+  }, []);
+
+  /* 🔒 Live countdown timer logic */
+  useEffect(() => {
+    if (lockSeconds === null) return;
+
+    if (lockSeconds <= 0) {
+      setLockSeconds(null);
+      localStorage.removeItem(LOCK_KEY);
+      setError(''); // Clear error when lock expires
+      return;
+    }
+
+    const timer = setInterval(() => {
+      setLockSeconds((s) => (s > 0 ? s - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [lockSeconds]);
+
+  /* ✅ DERIVED ERROR: This variable recalculates EVERY second 
+     whenever lockSeconds changes, making the UI "live". */
+  const displayError = lockSeconds !== null 
+    ? `Too many OTP attempts. Try again in ${Math.floor(lockSeconds / 60)}:${String(lockSeconds % 60).padStart(2, '0')}`
+    : error;
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (lockSeconds !== null) return;
+
     setLoading(true);
     setError('');
     try {
@@ -28,10 +76,16 @@ export default function TPOLoginPage() {
       if (res.status === 'OTP_REQUIRED') {
         setOtpId(res.otpId);
       } else {
-        throw new Error(res.message || 'Login failed');
+        throw res; 
       }
     } catch (err) {
-      setError(err.message || 'Invalid email or password');
+      console.log('LOGIN ERROR OBJECT:', err);
+      if (err?.retry_after_seconds) {
+        setOtpLock(err.retry_after_seconds);
+        setLockSeconds(err.retry_after_seconds);
+      } else {
+        setError(err?.error || err?.message || 'Invalid email or password');
+      }
     } finally {
       setLoading(false);
     }
@@ -39,6 +93,8 @@ export default function TPOLoginPage() {
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
+    if (lockSeconds !== null) return;
+
     setLoading(true);
     setError('');
     try {
@@ -46,16 +102,21 @@ export default function TPOLoginPage() {
         method: 'POST',
         body: JSON.stringify({ otpId, otp }),
       });
-      
-      // Changed role check to 'tpo'
+
       if (res.user.role !== 'tpo') throw new Error('Access denied: Unauthorized role');
-      
+
+      localStorage.removeItem(LOCK_KEY);
       localStorage.setItem('token', res.token);
       localStorage.setItem('user', JSON.stringify(res.user));
       document.cookie = `token=${res.token}; path=/; max-age=86400; SameSite=Lax`;
       router.push('/dashboard');
     } catch (err) {
-      setError(err.message || 'Verification failed');
+      if (err?.retry_after_seconds) {
+        setOtpLock(err.retry_after_seconds);
+        setLockSeconds(err.retry_after_seconds);
+      } else {
+        setError(err?.error || 'Invalid OTP');
+      }
     } finally {
       setLoading(false);
     }
@@ -64,30 +125,29 @@ export default function TPOLoginPage() {
   return (
     <div className="flex w-screen h-screen bg-white overflow-hidden fixed inset-0">
       
-      {/* LEFT SIDE: Matching Student Portal Style */}
+      {/* LEFT SIDE: TPO Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-blue-50 items-center justify-center p-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-blue-100 rounded-full opacity-50 blur-3xl"></div>
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-blue-100 rounded-full opacity-50 blur-3xl"></div>
 
         <div className="relative z-10 flex flex-col items-center">
-            {/* Swapped Image for TPO Context */}
-            <img 
-              src="https://lh3.googleusercontent.com/u/0/d/1SFFX-jM9BDZeY-lA02nWc-nzqmcGgQU8" 
-              alt="TPO Illustration" 
-              className="max-w-md w-full max-h-[65vh] object-contain drop-shadow-2xl rounded-3xl"
-            />
-            <div className="mt-8 text-center max-w-sm">
-              <h1 className="text-2xl xl:text-3xl font-black text-blue-900 leading-tight">
-                Training & Placement Officer
-              </h1>
-              <p className="mt-2 text-blue-600 font-medium text-sm xl:text-base">
-                Managing corporate relations and student careers effectively.
-              </p>
-            </div>
+          <img 
+            src="https://lh3.googleusercontent.com/u/0/d/1SFFX-jM9BDZeY-lA02nWc-nzqmcGgQU8" 
+            alt="TPO Illustration" 
+            className="max-w-md w-full max-h-[65vh] object-contain drop-shadow-2xl rounded-3xl"
+          />
+          <div className="mt-8 text-center max-w-sm">
+            <h1 className="text-2xl xl:text-3xl font-black text-blue-900 leading-tight">
+              Training & Placement Officer
+            </h1>
+            <p className="mt-2 text-blue-600 font-medium text-sm xl:text-base">
+              Managing corporate relations and student careers effectively.
+            </p>
+          </div>
         </div>
       </div>
 
-      {/* RIGHT SIDE: Vertical Centering */}
+      {/* RIGHT SIDE: Login Form */}
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 bg-white overflow-hidden">
         <div className="w-full max-w-md flex flex-col">
           
@@ -96,10 +156,11 @@ export default function TPOLoginPage() {
             <p className="mt-2 text-gray-500 font-medium text-sm">Access the administrative placement portal.</p>
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-red-600 shrink-0"></div>
-              {error}
+          {/* 🚨 Uses displayError for dynamic countdown updates */}
+          {displayError && (
+            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+              <div className={`h-2 w-2 rounded-full bg-red-600 shrink-0 ${lockSeconds !== null ? 'animate-pulse' : ''}`}></div>
+              <span className="font-semibold">{displayError}</span>
             </div>
           )}
 
@@ -115,7 +176,7 @@ export default function TPOLoginPage() {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="block w-full pl-11 pr-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-base text-gray-900 font-bold outline-none transition-all shadow-sm placeholder:text-gray-400"
+                      className="block w-full pl-11 pr-4 py-3 bg-gray-50 border-2 border-gray-100 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-base text-gray-900 font-bold outline-none transition-all shadow-sm"
                       placeholder="tpo@kit.edu"
                     />
                   </div>
@@ -130,7 +191,7 @@ export default function TPOLoginPage() {
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="block w-full pl-11 pr-11 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-base text-gray-900 font-bold outline-none transition-all shadow-sm placeholder:text-gray-400"
+                      className="block w-full pl-11 pr-11 py-3 bg-gray-50 border-2 border-gray-200 rounded-2xl focus:bg-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 text-base text-gray-900 font-bold outline-none transition-all shadow-sm"
                       placeholder="••••••••"
                     />
                     <button
@@ -145,8 +206,9 @@ export default function TPOLoginPage() {
 
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full flex justify-center items-center gap-3 py-3.5 border border-transparent text-sm font-bold rounded-2xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg active:scale-[0.98] transition-all"
+                  disabled={loading || lockSeconds !== null}
+                  className={`w-full flex justify-center items-center gap-3 py-3.5 border border-transparent text-sm font-bold rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all 
+                    ${lockSeconds !== null ? 'bg-gray-400 cursor-not-allowed opacity-80' : 'bg-blue-600 hover:bg-blue-700'}`}
                 >
                   {loading ? <Loader2 className="animate-spin h-5 w-5" /> : <>Sign In <ArrowRight size={18} /></>}
                 </button>
@@ -165,15 +227,18 @@ export default function TPOLoginPage() {
                   maxLength={6}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value)}
-                  className="block w-full text-center text-4xl tracking-[0.5em] font-mono font-black py-6 border-2 border-gray-100 rounded-3xl focus:border-blue-500 outline-none bg-white text-gray-900 shadow-inner"
+                  disabled={lockSeconds !== null}
+                  className="block w-full text-center text-4xl tracking-[0.5em] font-mono font-black py-6 border-2 border-gray-100 rounded-3xl focus:border-blue-500 outline-none bg-white text-gray-900 shadow-inner disabled:bg-gray-50 disabled:text-gray-400"
                   placeholder="000000"
                 />
                 
                 <button
                   type="submit"
-                  className="w-full py-3.5 text-sm font-black rounded-2xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg active:scale-[0.98] transition-all"
+                  disabled={loading || lockSeconds !== null}
+                  className={`w-full py-3.5 text-sm font-black rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all
+                    ${lockSeconds !== null ? 'bg-gray-400 cursor-not-allowed opacity-80' : 'bg-blue-600 hover:bg-blue-700'}`}
                 >
-                  Confirm Code
+                  {loading ? <Loader2 className="animate-spin h-5 w-5 mx-auto" /> : "Confirm Code"}
                 </button>
 
                 <button 
@@ -188,7 +253,6 @@ export default function TPOLoginPage() {
           </div>
 
           <div className="mt-6 flex flex-col items-center gap-2 border-t border-gray-100 pt-4 shrink-0">
-            {/* Removed Register link - Kept Forgot Password */}
             <Link href="/forgot-password" className="text-xs font-bold text-blue-600 hover:underline">
               Forgot password?
             </Link>

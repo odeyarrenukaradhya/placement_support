@@ -1,113 +1,187 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
-import { Mail, ShieldCheck, Lock, ArrowRight, Loader2, RefreshCw, KeyRound, Eye, EyeOff } from 'lucide-react';
+import {
+  Mail,
+  ShieldCheck,
+  Lock,
+  ArrowRight,
+  Loader2,
+  RefreshCw,
+  KeyRound,
+  Eye,
+  EyeOff
+} from 'lucide-react';
+
+/* 🔒 SHARED OTP LOCK (SAME AS LOGIN) */
+const LOCK_KEY = 'otp_lock_until';
+
+function setOtpLock(seconds) {
+  const until = Date.now() + seconds * 1000;
+  localStorage.setItem(LOCK_KEY, until.toString());
+}
+
+function getOtpLockRemaining() {
+  const until = localStorage.getItem(LOCK_KEY);
+  if (!until) return null;
+  const remaining = Math.ceil((+until - Date.now()) / 1000);
+  return remaining > 0 ? remaining : null;
+}
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
-  const [step, setStep] = useState(1); // 1: Email, 2: OTP, 3: New Password
+
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
 
-  // Data
   const [email, setEmail] = useState('');
   const [otpId, setOtpId] = useState(null);
   const [otp, setOtp] = useState('');
   const [resetToken, setResetToken] = useState(null);
-  
-  // Password States
+
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  // STEP 1: Request OTP
+  /* 🔒 lock timer */
+  const [lockSeconds, setLockSeconds] = useState(null);
+
+  /* 🔒 restore lock on load */
+  useEffect(() => {
+    const remaining = getOtpLockRemaining();
+    if (remaining) setLockSeconds(remaining);
+  }, []);
+
+  /* 🔒 live countdown */
+  useEffect(() => {
+    if (lockSeconds === null) return;
+
+    if (lockSeconds <= 0) {
+      setLockSeconds(null);
+      localStorage.removeItem(LOCK_KEY);
+      setError('');
+      return;
+    }
+
+    setError(
+      `Too many attempts. Please wait ${Math.floor(lockSeconds / 60)}:${String(
+        lockSeconds % 60
+      ).padStart(2, '0')}`
+    );
+
+    const timer = setInterval(() => {
+      setLockSeconds((s) => s - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [lockSeconds]);
+
+  /* STEP 1: REQUEST OTP */
   const handleRequestOtp = async (e) => {
     e.preventDefault();
+    if (lockSeconds !== null) return;
+
     setLoading(true);
-    setError('');
-    setMessage('');
+    if (lockSeconds === null) {
+      setError('');
+      setMessage('');
+    }
 
     try {
       const res = await apiFetch('/auth/request-password-reset', {
         method: 'POST',
-        body: JSON.stringify({ email: email.trim() }),
+        body: JSON.stringify({ email: email.trim() })
       });
 
-      if (res.otpId === 'simulation') {
-        setMessage('If an account exists, an OTP has been sent.');
-      } else {
+      if (res.otpId !== 'simulation') {
         setOtpId(res.otpId);
         setStep(2);
         setMessage('OTP sent successfully. Please check your email.');
       }
     } catch (err) {
-      setError(err.message || 'Failed to request OTP');
+      if (err?.retry_after_seconds) {
+        setOtpLock(err.retry_after_seconds);
+        setLockSeconds(err.retry_after_seconds);
+      } else {
+        setError(err?.error || 'Failed to request OTP');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // STEP 2: Verify OTP
+  /* STEP 2: VERIFY OTP */
   const handleVerifyOtp = async (e) => {
     e.preventDefault();
+    if (lockSeconds !== null) return;
+
     setLoading(true);
-    setError('');
-    setMessage('');
+    if (lockSeconds === null) {
+      setError('');
+      setMessage('');
+    }
 
     try {
       const res = await apiFetch('/auth/verify-reset-otp', {
         method: 'POST',
-        body: JSON.stringify({ otpId, otp }),
+        body: JSON.stringify({ otpId, otp })
       });
 
       setResetToken(res.resetToken);
       setStep(3);
       setMessage('OTP verified. Please enter your new password.');
     } catch (err) {
-      setError(err.message || 'Invalid OTP');
+      if (err?.retry_after_seconds) {
+        setOtpLock(err.retry_after_seconds);
+        setLockSeconds(err.retry_after_seconds);
+      } else {
+        setError(err?.error || 'Invalid OTP');
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // STEP 3: Reset Password
+  /* STEP 3: RESET PASSWORD */
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    
+
     if (newPassword !== confirmPassword) {
-        setError("Passwords do not match");
-        return;
+      setError('Passwords do not match');
+      return;
     }
 
     setLoading(true);
-    setError('');
-    setMessage('');
+    if (lockSeconds === null) {
+      setError('');
+      setMessage('');
+    }
 
     try {
       await apiFetch('/auth/reset-password', {
         method: 'POST',
-        body: JSON.stringify({ resetToken, newPassword }),
+        body: JSON.stringify({ resetToken, newPassword })
       });
-      
+
+      localStorage.removeItem(LOCK_KEY);
       setMessage('Password reset successfully! Redirecting...');
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
+      setTimeout(() => router.push('/login'), 2000);
     } catch (err) {
-      setError(err.message || 'Failed to reset password');
+      setError(err?.error || 'Failed to reset password');
     } finally {
       setLoading(false);
     }
   };
 
+  /* UI unchanged */
   return (
     <div className="flex w-screen h-screen bg-white overflow-hidden fixed inset-0">
-      
-      {/* LEFT SIDE */}
+         {/* LEFT SIDE */}
       <div className="hidden lg:flex lg:w-1/2 bg-blue-50 items-center justify-center p-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-blue-100 rounded-full opacity-50 blur-3xl"></div>
         <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 bg-blue-100 rounded-full opacity-50 blur-3xl"></div>
