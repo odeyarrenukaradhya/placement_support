@@ -99,7 +99,8 @@ create table public.attempts (
   exam_id uuid null,
   student_id uuid null,
   score integer null default 0,
-  submitted_at timestamp with time zone null default now(),
+  submitted_at timestamp with time zone null,
+  created_at timestamp with time zone null default now(),
   constraint attempts_pkey primary key (id),
   constraint attempts_exam_id_fkey foreign KEY (exam_id) references exams (id),
   constraint attempts_student_id_fkey foreign KEY (student_id) references users (id)

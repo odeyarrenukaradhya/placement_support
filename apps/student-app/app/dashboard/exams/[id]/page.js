@@ -1,20 +1,26 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import { Clock, Shield, Send, ChevronRight, CheckCircle2, ChevronLeft, Layout, MousePointer2 } from 'lucide-react';
+import gsap from 'gsap';
 
 export default function ExamAttemptPage() {
   const { id: examId } = useParams();
   const [exam, setExam] = useState(null);
   const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
-  const [answerTimestamps, setAnswerTimestamps] = useState([]); // [ { id, time } ]
+  const [answerTimestamps, setAnswerTimestamps] = useState([]);
   const [timeLeft, setTimeLeft] = useState(null);
   const [loading, setLoading] = useState(true);
   const [attemptId, setAttemptId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeQuestion, setActiveQuestion] = useState(0);
   const router = useRouter();
+  
+  const mainContentRef = useRef(null);
+  const qCardRef = useRef(null);
 
   // Logging utility
   const logEvent = useCallback((type, metadata = {}) => {
@@ -25,19 +31,19 @@ export default function ExamAttemptPage() {
     }).catch(console.error);
   }, [attemptId]);
 
-  // Initialize Attempt & Fetch Data
+  // Initialize Data
   useEffect(() => {
     const initExam = async () => {
       try {
-        // 1. Start Attempt
-        const attemptRes = await apiFetch('/attempts/start', {
-          method: 'POST',
-          body: JSON.stringify({ exam_id: examId }),
-        });
-        setAttemptId(attemptRes.attempt_id);
+        const [attemptRes, exams] = await Promise.all([
+          apiFetch('/attempts/start', {
+            method: 'POST',
+            body: JSON.stringify({ exam_id: examId }),
+          }),
+          apiFetch('/exams'),
+        ]);
 
-        // 2. Fetch Exam Details
-        const exams = await apiFetch('/exams');
+        setAttemptId(attemptRes.attempt_id);
         const currentExam = exams.find(e => e.id === examId);
         if (!currentExam) throw new Error('Exam not found');
         
@@ -46,7 +52,6 @@ export default function ExamAttemptPage() {
         setExam(currentExam);
         setQuestions(questionsData);
         
-        // Calculate remaining time based on server start time to persist across reloads
         const startTime = new Date(attemptRes.started_at).getTime();
         const durationMs = currentExam.duration * 60 * 1000;
         const endTime = startTime + durationMs;
@@ -54,7 +59,7 @@ export default function ExamAttemptPage() {
         
         setTimeLeft(remainingSeconds);
       } catch (err) {
-        alert(err.message || 'Failed to start exam');
+        console.error('Initialization error:', err);
         router.push('/dashboard/exams');
       } finally {
         setLoading(false);
@@ -63,6 +68,30 @@ export default function ExamAttemptPage() {
     initExam();
   }, [examId, router]);
 
+  // Entrance Animation
+  useEffect(() => {
+    if (!loading && exam) {
+      gsap.fromTo(".nav-item", 
+        { scale: 0.8, opacity: 0 }, 
+        { scale: 1, opacity: 1, duration: 0.4, stagger: 0.05, ease: "back.out(1.7)" }
+      );
+      gsap.fromTo(".q-container", 
+        { x: 30, opacity: 0 }, 
+        { x: 0, opacity: 1, duration: 0.6, ease: "power3.out" }
+      );
+    }
+  }, [loading, exam]);
+
+  // Question Switch Animation
+  useEffect(() => {
+    if (qCardRef.current) {
+      gsap.fromTo(qCardRef.current, 
+        { y: 10, opacity: 0 }, 
+        { y: 0, opacity: 1, duration: 0.4, ease: "power2.out" }
+      );
+    }
+  }, [activeQuestion]);
+
   // Timer logic
   useEffect(() => {
     if (timeLeft === 0) {
@@ -70,41 +99,22 @@ export default function ExamAttemptPage() {
       return;
     }
     if (timeLeft === null) return;
-
-    const timer = setInterval(() => {
-        setTimeLeft(prev => prev - 1);
-    }, 1000);
-
+    const timer = setInterval(() => setTimeLeft(prev => Math.max(0, prev - 1)), 1000);
     return () => clearInterval(timer);
   }, [timeLeft]);
 
-  // Answer Pattern Monitoring
-  const handleAnswer = (questionId, option) => {
-    const now = Date.now();
-    setAnswers(prev => ({ ...prev, [questionId]: option }));
-
-    // Update timestamps
-    setAnswerTimestamps(prev => {
-        const newTimestamps = [...prev, { time: now }];
-        // Keep only last 10 seconds
-        const recent = newTimestamps.filter(t => now - t.time < 10000);
-        
-        if (recent.length >= 3) {
-            logEvent('suspicious_answer_pattern', {
-                detail: '3+ answers in 10s',
-                count: recent.length,
-                timestamp: new Date().toISOString()
-            });
-            // Clear to avoid spamming logs for the same burst
-            return [];
-        }
-        return recent;
-    });
-  };
-
-  // Integrity Controls (Listeners)
+  // Integrity Controls (Refined)
   useEffect(() => {
     if (!attemptId) return;
+
+    // Use a small delay for blur to avoid false positives on quick interactions
+    let blurTimeout;
+    const handleBlur = () => {
+      blurTimeout = setTimeout(() => {
+        logEvent('window_blur', { timestamp: new Date().toISOString() });
+      }, 500); 
+    };
+    const handleFocus = () => clearTimeout(blurTimeout);
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
@@ -112,29 +122,20 @@ export default function ExamAttemptPage() {
       }
     };
 
-    const handleBlur = () => logEvent('window_blur', { timestamp: new Date().toISOString() });
-    
-    const handleContextMenu = (e) => {
-      e.preventDefault();
-      logEvent('right_click_attempt', { timestamp: new Date().toISOString() });
-    };
-
-    const handleCopy = () => logEvent('copy_attempt', { timestamp: new Date().toISOString() });
-    const handlePaste = () => logEvent('paste_attempt', { timestamp: new Date().toISOString() });
+    const handleContextMenu = (e) => e.preventDefault();
+    const handleCopy = (e) => e.preventDefault();
+    const handlePaste = (e) => e.preventDefault();
 
     const handleKeyDown = (e) => {
       if ((e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'p' || e.key === 'r')) || e.key === 'F5') {
         e.preventDefault();
         logEvent('forbidden_key_press', { key: e.key, timestamp: new Date().toISOString() });
-        
-        if (e.ctrlKey && e.key === 'p') {
-             logEvent('print_attempt', { timestamp: new Date().toISOString() });
-        }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleBlur);
+    window.addEventListener('focus', handleFocus);
     window.addEventListener('contextmenu', handleContextMenu);
     window.addEventListener('copy', handleCopy);
     window.addEventListener('paste', handlePaste);
@@ -143,31 +144,42 @@ export default function ExamAttemptPage() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('focus', handleFocus);
       window.removeEventListener('contextmenu', handleContextMenu);
       window.removeEventListener('copy', handleCopy);
       window.removeEventListener('paste', handlePaste);
       window.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(blurTimeout);
     };
   }, [attemptId, logEvent]);
+
+  const handleAnswer = (questionId, option) => {
+    const now = Date.now();
+    setAnswers(prev => ({ ...prev, [questionId]: option }));
+
+    setAnswerTimestamps(prev => {
+        const newTimestamps = [...prev, { time: now }];
+        const recent = newTimestamps.filter(t => now - t.time < 5000);
+        if (recent.length >= 4) {
+            logEvent('rapid_answering', { count: recent.length, timestamp: new Date().toISOString() });
+            return [];
+        }
+        return recent;
+    });
+  };
 
   const handleSubmit = async (auto = false) => {
     if (!attemptId || isSubmitting) return;
     setIsSubmitting(true);
-    
-    if (auto) {
-        // Optional: toast or minimal alert
-        console.log("Auto-submitting due to timeout");
-    }
-
     try {
       const result = await apiFetch(`/exams/${examId}/attempt`, {
         method: 'POST',
         body: JSON.stringify({ answers, attempt_id: attemptId }),
       });
-      alert(auto ? `Time's Up! Exam Submitted. Score: ${result.score}` : `Exam Submitted! Your Score: ${result.score}`);
+      // Redirect silently to dashboard
       router.push('/dashboard');
     } catch (err) {
-      alert('Submission failed: ' + (err.message || 'Unknown error'));
+      alert('Error: ' + err.message);
       setIsSubmitting(false);
     }
   };
@@ -178,49 +190,172 @@ export default function ExamAttemptPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  if (loading) return <div className="p-20 text-center">Loading exam...</div>;
+  const progress = useMemo(() => {
+    if (questions.length === 0) return 0;
+    return (Object.keys(answers).length / questions.length) * 100;
+  }, [answers, questions]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#FDFDFF] flex flex-col items-center justify-center p-8">
+        <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-6"></div>
+        <p className="text-slate-400 font-black uppercase tracking-[0.2em] text-xs">Establishing Secure Interface</p>
+      </div>
+    );
+  }
+
+  const currentQ = questions[activeQuestion];
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8 select-none">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex justify-between items-center mb-8 sticky top-0 bg-white p-4 rounded-lg shadow-sm z-10">
-          <h2 className="text-2xl font-bold">{exam?.title}</h2>
-          <div className="text-xl font-mono font-bold text-red-600 bg-red-50 px-4 py-2 rounded">
-            Time Left: {formatTime(timeLeft)}
+    <div className="min-h-screen bg-[#FDFDFF] flex flex-col font-sans select-none overflow-hidden">
+      {/* Top Bar */}
+      <header className="h-20 bg-white/80 backdrop-blur-2xl border-b border-slate-100 flex items-center justify-between px-10 sticky top-0 z-40">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-blue-200">
+            <Shield size={20} />
+          </div>
+          <div>
+            <h1 className="text-lg font-black text-slate-950 leading-tight">{exam?.title}</h1>
+            <p className="text-[10px] font-black text-blue-500 uppercase tracking-widest">Active Exam Session</p>
           </div>
         </div>
 
-        <div className="space-y-8 pb-20">
-          {questions.map((q, qIndex) => (
-            <div key={q.id} className="bg-white p-8 rounded-lg shadow-sm border border-gray-200">
-              <p className="text-lg font-medium mb-4 text-gray-900">{qIndex + 1}. {q.question}</p>
-              <div className="space-y-3">
-                {q.options.map((opt, oIndex) => (
-                  <label key={oIndex} className="flex items-center gap-3 p-3 border rounded-md cursor-pointer hover:bg-gray-50 has-[:checked]:bg-blue-50 has-[:checked]:border-blue-500 text-gray-800">
-                    <input
-                      type="radio"
-                      name={`question-${q.id}`}
-                      className="w-4 h-4 text-blue-600"
-                      onChange={() => handleAnswer(q.id, opt)}
-                      checked={answers[q.id] === opt}
-                    />
-                    <span>{opt}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="absolute left-1/2 -translate-x-1/2 w-64 hidden lg:block">
+           <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-blue-600 transition-all duration-700 ease-out"
+                style={{ width: `${progress}%` }}
+              ></div>
+           </div>
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t p-4 flex justify-center">
-            <button 
-                onClick={() => handleSubmit(false)}
-                disabled={isSubmitting}
-                className={`px-12 py-3 rounded-lg font-bold text-lg shadow-lg ${isSubmitting ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-            >
-                {isSubmitting ? 'Submitting...' : 'Submit Exam'}
-            </button>
+        <div className={`flex items-center gap-3 px-6 py-2.5 rounded-2xl border font-mono font-black text-xl transition-all duration-500 ${
+          timeLeft < 180 ? 'bg-red-50 border-red-100 text-red-600 animate-pulse' : 'bg-slate-50 border-slate-100 text-slate-800'
+        }`}>
+          <Clock size={20} className={timeLeft < 180 ? 'text-red-500' : 'text-slate-400'} />
+          {formatTime(timeLeft)}
         </div>
+      </header>
+
+      <main className="flex-grow flex overflow-hidden">
+        {/* Navigation Sidebar */}
+        <aside className="w-80 bg-white border-r border-slate-100 p-8 flex flex-col overflow-y-auto hidden md:flex">
+          <div className="mb-8">
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-6">Questions</h3>
+            <div className="grid grid-cols-4 gap-3">
+              {questions.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActiveQuestion(idx)}
+                  className={`nav-item h-12 rounded-xl font-bold transition-all duration-300 ${
+                    activeQuestion === idx 
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-200 ring-2 ring-blue-600/20' 
+                    : answers[questions[idx].id] 
+                    ? 'bg-blue-50 text-blue-600' 
+                    : 'bg-slate-50 text-slate-400 hover:bg-slate-100'
+                  }`}
+                >
+                  {idx + 1}
+                </button>
+              ))}
+          </div>
+         </div>
+        </aside>
+
+        {/* Content Area */}
+        <section className="flex-grow p-12 lg:p-20 overflow-y-auto q-container" ref={mainContentRef}>
+          <div className="max-w-3xl mx-auto" ref={qCardRef}>
+            <div className="mb-12">
+              <span className="text-blue-600 font-black text-sm uppercase tracking-widest mb-4 block">Question {activeQuestion + 1} of {questions.length}</span>
+              <h2 className="text-4xl font-bold text-slate-900 leading-tight italic">
+                {currentQ?.question}
+              </h2>
+            </div>
+
+            <div className="space-y-4">
+              {currentQ?.options.map((opt, idx) => {
+                const isSelected = answers[currentQ.id] === opt;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => handleAnswer(currentQ.id, opt)}
+                    className={`w-full flex items-center p-6 rounded-[2rem] border-2 text-left transition-all duration-300 group ${
+                      isSelected 
+                      ? 'bg-blue-50 border-blue-600 shadow-xl shadow-blue-600/5 ring-4 ring-blue-600/5' 
+                      : 'bg-white border-slate-100 hover:border-slate-300 hover:bg-slate-50/50'
+                    }`}
+                  >
+                    <div className={`w-8 h-8 rounded-xl border-2 flex items-center justify-center mr-6 transition-all duration-300 ${
+                      isSelected ? 'bg-blue-600 border-blue-600 text-white scale-110' : 'bg-slate-50 border-slate-200 text-transparent'
+                    }`}>
+                      <CheckCircle2 size={16} />
+                    </div>
+                    <span className={`text-xl font-bold transition-colors duration-300 ${
+                      isSelected ? 'text-blue-950' : 'text-slate-600'
+                    }`}>
+                      {opt}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="flex items-center justify-between mt-16">
+               <button 
+                  onClick={() => setActiveQuestion(prev => Math.max(0, prev - 1))}
+                  disabled={activeQuestion === 0}
+                  className="p-5 rounded-2xl bg-white border border-slate-100 text-slate-400 hover:text-blue-600 hover:border-blue-100 disabled:opacity-30 transition-all font-bold"
+               >
+                  <ChevronLeft size={24} />
+               </button>
+
+               {activeQuestion < questions.length - 1 ? (
+                 <button 
+                    onClick={() => setActiveQuestion(prev => Math.min(questions.length - 1, prev + 1))}
+                    className="flex items-center gap-3 px-10 py-5 rounded-3xl bg-slate-950 text-white font-black uppercase tracking-widest text-sm hover:bg-blue-600 transition-all shadow-xl hover:shadow-blue-200"
+                 >
+                    Next Question
+                    <ChevronRight size={20} />
+                 </button>
+               ) : (
+                 <button 
+                    onClick={() => {
+                        if (Object.keys(answers).length < questions.length) {
+                           if (!confirm(`Warning: ${questions.length - Object.keys(answers).length} questions unanswered. Submit anyway?`)) return;
+                        }
+                        handleSubmit(false);
+                    }}
+                    disabled={isSubmitting}
+                    className="flex items-center gap-3 px-10 py-5 rounded-3xl bg-blue-600 text-white font-black uppercase tracking-widest text-sm hover:bg-blue-700 transition-all shadow-xl shadow-blue-200"
+                 >
+                    {isSubmitting ? 'Syncing...' : 'End Exam Session'}
+                 </button>
+               )}
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* Floating Navigator for mobile */}
+      <div className="md:hidden fixed bottom-6 left-6 right-6 bg-white/90 backdrop-blur-xl border border-slate-100 p-4 rounded-3xl shadow-2xl z-50 flex items-center justify-between gap-4">
+         <div className="flex-grow overflow-x-auto flex gap-2 no-scrollbar px-2">
+            {questions.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setActiveQuestion(idx)}
+                className={`flex-shrink-0 w-10 h-10 rounded-xl font-bold transition-all ${
+                  activeQuestion === idx ? 'bg-blue-600 text-white' : answers[questions[idx].id] ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-400'
+                }`}
+              >
+                {idx + 1}
+              </button>
+            ))}
+         </div>
+         <button 
+           onClick={() => handleSubmit(false)}
+           className="bg-blue-600 text-white p-3 rounded-2xl shadow-lg ring-4 ring-blue-100"
+         >
+         </button>
       </div>
     </div>
   );

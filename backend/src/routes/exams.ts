@@ -13,7 +13,13 @@ router.get('/', authenticateJWT, collegeIsolation, async (req: AuthRequest, res:
                    (CASE WHEN a.submitted_at IS NOT NULL THEN true ELSE false END) as is_attempted,
                    a.score
             FROM exams e
-            LEFT JOIN attempts a ON e.id = a.exam_id AND a.student_id = $1
+            LEFT JOIN LATERAL (
+                SELECT submitted_at, score 
+                FROM attempts 
+                WHERE exam_id = e.id AND student_id = $1 
+                ORDER BY created_at DESC 
+                LIMIT 1
+            ) a ON true
             WHERE 1=1
         `;
         const params: any[] = [req.user?.id];
