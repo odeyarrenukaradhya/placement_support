@@ -60,6 +60,38 @@ router.get('/student/dashboard-stats', authenticateJWT, authorizeRoles('student'
     }
 });
 
+// Student: Get Global Rankings (within college)
+router.get('/student/rankings', authenticateJWT, authorizeRoles('student'), async (req: AuthRequest, res: any) => {
+    try {
+        const collegeId = req.user?.college_id;
+        
+        // Fetch all students in the college with their total scores
+        const result = await query(`
+            SELECT 
+                u.id as student_id,
+                u.name,
+                COALESCE(SUM(a.score), 0) as total_score,
+                COUNT(a.id) as exams_taken
+            FROM users u
+            LEFT JOIN attempts a ON u.id = a.student_id AND a.submitted_at IS NOT NULL
+            WHERE u.role = 'student' AND u.college_id = $1
+            GROUP BY u.id, u.name
+            ORDER BY total_score DESC, u.name ASC
+        `, [collegeId]);
+
+        // Add rank to each student
+        const rankings = result.rows.map((student: any, index: number) => ({
+            rank: index + 1,
+            ...student
+        }));
+
+        res.json(rankings);
+    } catch (err) {
+        console.error('Rankings Error:', err);
+        res.status(500).json({ error: 'Failed to fetch rankings' });
+    }
+});
+
 // TPO: Get participation stats for an exam
 router.get('/tpo/exam-stats/:examId', authenticateJWT, authorizeRoles('tpo'), async (req: AuthRequest, res: any) => {
     const { examId } = req.params;

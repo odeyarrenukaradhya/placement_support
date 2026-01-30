@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { apiFetch } from '@/lib/api';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { apiFetch } from "@/lib/api";
 import {
   Mail,
   Lock,
@@ -12,13 +12,13 @@ import {
   ShieldCheck,
   ArrowRight,
   Loader2,
-  RefreshCw
-} from 'lucide-react';
+  RefreshCw,
+} from "lucide-react";
 
 /* ===========================
    OTP LOCK HELPERS
 =========================== */
-const LOCK_KEY = 'otp_lock_until';
+const LOCK_KEY = "otp_lock_until";
 
 function setOtpLock(seconds) {
   const until = Date.now() + seconds * 1000;
@@ -36,15 +36,15 @@ function getOtpLockRemaining() {
 export default function StudentLoginPage() {
   const router = useRouter();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
-  const [otp, setOtp] = useState('');
+  const [otp, setOtp] = useState("");
   const [otpId, setOtpId] = useState(null);
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   // 🔒 OTP lock timer (seconds)
   const [lockSeconds, setLockSeconds] = useState(null);
@@ -68,14 +68,14 @@ export default function StudentLoginPage() {
     if (lockSeconds <= 0) {
       setLockSeconds(null);
       localStorage.removeItem(LOCK_KEY);
-      setError('');
+      setError("");
       return;
     }
 
     setError(
       `Too many attempts. Please wait ${Math.floor(lockSeconds / 60)}:${String(
-        lockSeconds % 60
-      ).padStart(2, '0')}`
+        lockSeconds % 60,
+      ).padStart(2, "0")}`,
     );
 
     const interval = setInterval(() => {
@@ -94,18 +94,18 @@ export default function StudentLoginPage() {
     if (lockSeconds !== null) return;
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const res = await apiFetch('/auth/login', {
-        method: 'POST',
+      const res = await apiFetch("/auth/login", {
+        method: "POST",
         body: JSON.stringify({
           email: email.trim(),
-          password: password.trim()
-        })
+          password: password.trim(),
+        }),
       });
 
-      if (res.status === 'OTP_REQUIRED') {
+      if (res.status === "OTP_REQUIRED") {
         setOtpId(res.otpId);
       } else {
         throw res;
@@ -115,7 +115,7 @@ export default function StudentLoginPage() {
         setOtpLock(err.retry_after_seconds);
         setLockSeconds(err.retry_after_seconds);
       } else {
-        setError(err?.error || err?.message || 'Invalid email or password');
+        setError(err?.error || err?.message || "Invalid email or password");
       }
     } finally {
       setLoading(false);
@@ -131,29 +131,29 @@ export default function StudentLoginPage() {
     if (lockSeconds !== null) return;
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const res = await apiFetch('/auth/verify-otp', {
-        method: 'POST',
-        body: JSON.stringify({ otpId, otp })
+      const res = await apiFetch("/auth/verify-otp", {
+        method: "POST",
+        body: JSON.stringify({ otpId, otp }),
       });
 
-      if (res.user.role !== 'student') {
-        throw new Error('Access denied');
+      if (res.user.role !== "student") {
+        throw new Error("Access denied");
       }
 
-      localStorage.setItem('token', res.token);
-      localStorage.setItem('user', JSON.stringify(res.user));
+      localStorage.setItem("token", res.token);
+      localStorage.setItem("user", JSON.stringify(res.user));
       document.cookie = `token=${res.token}; path=/; max-age=86400; SameSite=Lax`;
 
-      router.push('/dashboard');
+      router.push("/dashboard");
     } catch (err) {
       if (err?.retry_after_seconds) {
         setOtpLock(err.retry_after_seconds);
         setLockSeconds(err.retry_after_seconds);
       } else {
-        setError(err?.error || err?.message || 'Verification failed');
+        setError(err?.error || err?.message || "Verification failed");
       }
     } finally {
       setLoading(false);
@@ -165,7 +165,6 @@ export default function StudentLoginPage() {
   =========================== */
   return (
     <div className="flex w-screen h-screen bg-white overflow-hidden fixed inset-0">
-
       {/* LEFT SIDE */}
       <div className="hidden lg:flex lg:w-1/2 bg-blue-50 items-center justify-center p-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 bg-blue-100 rounded-full opacity-50 blur-3xl"></div>
@@ -189,9 +188,8 @@ export default function StudentLoginPage() {
       </div>
 
       {/* RIGHT SIDE */}
-      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 bg-white overflow-hidden">
+      <div className="w-full lg:w-1/2 flex flex-col justify-center items-center p-6 bg-white overflow-hidden relative">
         <div className="w-full max-w-md flex flex-col">
-
           <div className="mb-6 text-center lg:text-left shrink-0">
             <h2 className="text-3xl xl:text-4xl font-extrabold text-gray-900 tracking-tight">
               Student Login
@@ -211,7 +209,6 @@ export default function StudentLoginPage() {
           <div className="flex-1">
             {!otpId ? (
               <form onSubmit={handleLogin} className="space-y-4">
-
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-gray-700 ml-1">
                     Email Address
@@ -236,7 +233,7 @@ export default function StudentLoginPage() {
                   <div className="relative group">
                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <input
-                      type={showPassword ? 'text' : 'password'}
+                      type={showPassword ? "text" : "password"}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -274,9 +271,7 @@ export default function StudentLoginPage() {
                   <h3 className="text-lg font-bold text-blue-900">
                     Check your email
                   </h3>
-                  <p className="text-xs text-blue-700 mt-1">
-                    Sent to {email}
-                  </p>
+                  <p className="text-xs text-blue-700 mt-1">Sent to {email}</p>
                 </div>
 
                 <input
@@ -310,14 +305,32 @@ export default function StudentLoginPage() {
           </div>
 
           <div className="mt-6 flex flex-col items-center gap-2 border-t border-gray-100 pt-4">
-            <Link href="/signup" className="text-xs font-bold text-blue-600 hover:underline">
+            <Link
+              href="/signup"
+              className="text-xs font-bold text-blue-600 hover:underline"
+            >
               New student? Register account
             </Link>
-            <Link href="/forgot-password" className="text-xs font-bold text-blue-600 hover:underline">
+            <Link
+              href="/forgot-password"
+              className="text-xs font-bold text-blue-600 hover:underline"
+            >
               Forgot password?
             </Link>
           </div>
+        </div>
 
+        <div className="absolute bottom-6 flex items-center justify-center gap-2 opacity-80">
+          <span className="text-[10px] font-bold text-black">
+            <a
+              href="https://cortinex-webstudio.vercel.app/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[10px] font-bold text-black hover:underline"
+            >
+              Developed by .CXW Devs
+            </a>
+          </span>
         </div>
       </div>
     </div>

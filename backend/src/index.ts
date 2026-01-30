@@ -14,6 +14,7 @@ import integrityRouter from './routes/integrity';
 import collegesRouter from './routes/colleges';
 import adminRouter from './routes/admin';
 import analyticsRouter from './routes/analytics';
+import profileRouter from './routes/profile';
 import { startOTPCleanupScheduler } from './utils/otpCleanup';
 
 const app = express();
@@ -31,6 +32,7 @@ app.use('/integrity', integrityRouter);
 app.use('/colleges', collegesRouter);
 app.use('/admin', adminRouter);
 app.use('/analytics', analyticsRouter);
+app.use('/profile', profileRouter);
 
 // Health check
 app.get('/health', (req, res) => {
