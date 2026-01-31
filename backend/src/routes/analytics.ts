@@ -8,14 +8,19 @@ const router = express.Router();
 router.get('/student/my-scores', authenticateJWT, authorizeRoles('student'), async (req: AuthRequest, res: any) => {
     try {
         const result = await query(`
-            SELECT a.*, e.title as exam_title, e.duration
+            SELECT 
+                a.*, 
+                e.title as exam_title, 
+                e.duration,
+                COALESCE((SELECT COUNT(*) FROM questions q WHERE q.exam_id = e.id), 0) as total_questions
             FROM attempts a
             JOIN exams e ON a.exam_id = e.id
-            WHERE a.student_id = $1
-            ORDER BY a.submitted_at DESC
+            WHERE a.student_id = $1 AND a.submitted_at IS NOT NULL
+            ORDER BY a.submitted_at ASC
         `, [req.user?.id]);
         res.json(result.rows);
     } catch (err) {
+        console.error('Fetch Scores Error:', err);
         res.status(500).json({ error: 'Failed to fetch scores' });
     }
 });

@@ -1,21 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { useEffect, useState } from "react";
 import { apiFetch } from "@/lib/api";
-import {
-  Home,
-  BookOpen,
-  ClipboardList,
-  TrendingUp,
-  LogOut,
-  Bell,
-} from "lucide-react";
 import TextType from "@/components/TextType";
 import ParticleCard from "@/components/ParticleCard";
+import { DashboardLayout } from "@/components/DashboardLayout";
+import { Bell } from "lucide-react";
 
-const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const months = [
   "January",
   "February",
@@ -30,6 +21,9 @@ const months = [
   "November",
   "December",
 ];
+
+const daysOfWeek = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
 const BAR_COLORS = [
   "bg-blue-600",
   "bg-indigo-600",
@@ -40,11 +34,7 @@ const BAR_COLORS = [
 ];
 
 export default function StudentDashboard() {
-  const router = useRouter();
-
   // State
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     totalTests: 0,
     completedTests: 0,
@@ -57,17 +47,14 @@ export default function StudentDashboard() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedDate, setSelectedDate] = useState(null);
   const [eventTitle, setEventTitle] = useState("");
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  // 1. Initialize User and Events from LocalStorage
-  useEffect(() => {
-    const userData = localStorage.getItem("user");
-    const savedEvents = localStorage.getItem("studentEvents");
+  const [loading, setLoading] = useState(false);
 
-    if (userData) setUser(JSON.parse(userData));
+  // 1. Initialize Events from LocalStorage
+  useEffect(() => {
+    const savedEvents = localStorage.getItem("studentEvents");
     if (savedEvents) {
       setEvents(JSON.parse(savedEvents));
     } else {
-      // Default events if none exist
       setEvents([
         {
           id: 1,
@@ -94,10 +81,9 @@ export default function StudentDashboard() {
     }
   }, [events]);
 
-  // 3. Fetch Data (Consolidated)
+  // 3. Fetch Data
   useEffect(() => {
     let mounted = true;
-
     async function loadDashboardData() {
       try {
         setLoading(true);
@@ -111,26 +97,40 @@ export default function StudentDashboard() {
         const upcoming = statsData?.upcoming_exams ?? 0;
         const completed = statsData?.completed_attempts ?? 0;
 
-        // Compute average score
-        const avg = scores?.length
-          ? Math.round(
-              (scores.reduce((s, a) => s + (a.score || 0), 0) / scores.length) *
-                100,
-            ) / 100
+        // Calculate individual accuracies first
+        const testAccuracies = (scores || []).map(s => {
+          const total = Number(s.total_questions) || 0;
+          const score = Number(s.score) || 0;
+          return total > 0 ? (score / total) * 100 : 0;
+        });
+
+        // Calculate average accuracy
+        const avgAccuracy = testAccuracies.length 
+          ? Math.round(testAccuracies.reduce((a, b) => a + b, 0) / testAccuracies.length)
           : 0;
 
         setStats({
           totalTests: upcoming + completed,
           completedTests: completed,
           availableTests: upcoming,
-          averageScore: avg,
+          averageScore: avgAccuracy,
         });
 
-        const activity = (scores || []).map((s, i) => ({
-          course: s.exam_title || `Test ${i + 1}`,
-          score: s.score ?? 0,
-          color: BAR_COLORS[i % BAR_COLORS.length],
-        }));
+        const activity = (scores || []).map((s, i) => {
+          const totalQuestions = Number(s.total_questions) || 0;
+          const correctAnswers = Number(s.score) || 0;
+          const accuracy = totalQuestions > 0 
+            ? Math.round((correctAnswers / totalQuestions) * 100) 
+            : 0;
+
+          return {
+            course: s.exam_title || `Test ${i + 1}`,
+            score: accuracy,
+            rawScore: correctAnswers,
+            total: totalQuestions,
+            date: s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : 'N/A'
+          };
+        });
 
         setCourseActivity(activity);
       } catch (err) {
@@ -146,359 +146,245 @@ export default function StudentDashboard() {
     };
   }, []);
 
-  const handleLogout = () => {
-    localStorage.clear();
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-    router.push("/login");
-  };
-
   return (
-    <div className="min-h-screen bg-[#e8edff] flex overflow-hidden">
-      {/* Sidebar (Desktop Only) */}
-      <aside className="hidden lg:block w-64 bg-white shadow-lg rounded-r-3xl p-6">
-        <div className="relative group cursor-pointer">
-          <img
-            src="https://lh3.googleusercontent.com/u/0/d/1f4qSF9eLf0IFr_bIiajaCJJkyuW2l_OB"
-            alt="Platform Logo"
-            className="h-15 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
-          />
-          {/* Subtle glow effect behind logo */}
-          <div className="absolute -inset-1 bg-blue-100 rounded-full blur opacity-25" />
-        </div>
+    <DashboardLayout>
+      {/* Stats */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <StatCard title="Total Test" value={stats.totalTests} />
+        <StatCard title="Completed Test" value={stats.completedTests} />
+        <StatCard title="Available Tests" value={stats.availableTests} />
+        <StatCard
+          title="Average Score"
+          value={stats.averageScore ? `${stats.averageScore}%` : "0%"}
+        />
+      </div>
 
-        <nav className="space-y-4 text-slate-600">
-          <SidebarItem icon={<Home size={18} />} label="Home" active />
-          <Link href="/dashboard/exams">
-            <SidebarItem icon={<ClipboardList size={18} />} label="Exams" />
-          </Link>
-          <Link href="/dashboard/tint">
-            <SidebarItem icon={<BookOpen size={18} />} label="Materials" />
-          </Link>
-          <Link href="/dashboard/progress">
-            <SidebarItem icon={<TrendingUp size={18} />} label="Progress" />
-          </Link>
-        </nav>
+      {/* Courses and Calendar */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col h-[400px]">
+          <h2 className="text-lg font-black mb-10 text-slate-800 tracking-tight flex items-center gap-2">
+            <span className="w-2 h-6 bg-blue-600 rounded-full"></span>
+            Performance Analytics
+          </h2>
 
-        <button
-          onClick={handleLogout}
-          className="mt-12 flex items-center gap-2 text-red-500 font-semibold"
-        >
-          <LogOut size={18} />
-          Logout
-        </button>
-      </aside>
-{/* ================= MOBILE TOP BAR ================= */}
-<div className="lg:hidden fixed top-0 left-0 right-0 h-14 bg-white shadow z-30 flex items-center px-4 gap-2">
+          {/* Line Chart Container */}
+          <div className="flex gap-4 flex-1 relative min-h-0">
+            {/* Y-axis labels */}
+            <div className="flex flex-col justify-between items-end pr-2 h-full text-[10px] font-black text-slate-400 uppercase tracking-widest pb-6">
+              <span>100%</span>
+              <span>75%</span>
+              <span>50%</span>
+              <span>25%</span>
+              <span>0%</span>
+            </div>
 
-  {/* Hamburger */}
-  <button
-    onClick={() => setMobileSidebarOpen(true)}
-    className="text-xl font-bold flex-shrink-0  text-blue-700"
-  >
-    ☰
-  </button>
+            {/* SVG Chart Area */}
+            <div className="flex-1 relative flex flex-col h-full overflow-hidden">
+               <div className="flex-1 relative border-l border-b border-slate-100">
+                  {courseActivity.length > 1 ? (
+                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full p-2 overflow-visible">
+                      <defs>
+                        <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#2563eb" stopOpacity="1" />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.8" />
+                        </linearGradient>
+                        <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
+                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                        </linearGradient>
+                      </defs>
+                      
+                      {/* Area Fill */}
+                      <path
+                        d={`M 0 100 ${courseActivity.map((test, i) => 
+                          `L ${(i / (courseActivity.length - 1)) * 100} ${100 - test.score}`
+                        ).join(' ')} L 100 100 Z`}
+                        fill="url(#areaGradient)"
+                      />
 
-  {/* Student Name */}
-  <span className="flex-1 text-center text-sm font-bold truncate text-blue-600">
-    <TextType
-              text={`Hello, ${user?.name || "Student"}`}
-              typingSpeed={60}
-              pauseDuration={1200}
-              cursorCharacter="_"
-              className="inline"
-              showCursor
-              textColors={["blue"]}
-            />
-  </span>
+                      {/* Main Line */}
+                      <path
+                        d={courseActivity.map((test, i) => 
+                          `${i === 0 ? 'M' : 'L'} ${(i / (courseActivity.length - 1)) * 100} ${100 - test.score}`
+                        ).join(' ')}
+                        fill="none"
+                        stroke="url(#lineGradient)"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="animate-in fade-in duration-1000"
+                      />
 
-  {/* Right Icons */}
-  <div className="flex items-center gap-3 flex-shrink-0">
-    <Bell size={18} />
-    <div className="w-8 h-8 bg-blue-200 rounded-full flex items-center justify-center text-xs font-bold text-blue-700">
-      {user?.name?.charAt(0) || "U"}
-    </div>
-  </div>
-
-</div>
-{/* ================= MOBILE SIDEBAR ================= */}
-{mobileSidebarOpen && (
-  <>
-    {/* Backdrop */}
-    <div
-      className="fixed inset-0 bg-black/40 z-40 lg:hidden"
-      onClick={() => setMobileSidebarOpen(false)}
-    />
-
-    {/* Sidebar */}
-    <aside className="fixed top-0 left-0 h-full w-[260px] max-w-[80vw] bg-white z-50 p-6 lg:hidden">
-      <div className=" font-bold text-lg  text-blue-700">Menu</div>
-        {/* Sidebar Logo */}
-<div className="flex items-center justify-center">
-  <img
-    src="https://lh3.googleusercontent.com/u/0/d/1f4qSF9eLf0IFr_bIiajaCJJkyuW2l_OB"
-    alt="Platform Logo"
-    className="h-35 w-auto"
-  />
-</div>
-      <nav className=" text-slate-600">
-        <SidebarItem icon={<Home size={18} />} label="Home" active />
-        <Link href="/dashboard/exams">
-          <SidebarItem icon={<ClipboardList size={18} />} label="Exams" />
-        </Link>
-        <Link href="/dashboard/tint">
-          <SidebarItem icon={<BookOpen size={18} />} label="Materials" />
-        </Link>
-        <Link href="/dashboard/progress">
-          <SidebarItem icon={<TrendingUp size={18} />} label="Progress" />
-        </Link>
-      </nav>
-
-      <button
-        onClick={handleLogout}
-        className="mt-10 flex items-center gap-2 text-red-500 font-semibold"
-      >
-        <LogOut size={18} />
-        Logout
-      </button>
-    </aside>
-  </>
-)}
-      {/* Main */}
-      <main className="flex-1 overflow-hidden p-3 pt-16 lg:p-5 lg:pt-5">
-        {/* Top Bar */}
-        <div className="hidden lg:flex justify-between items-center mb-3">
-          <h1 className="text-xl font-bold">
-            <TextType
-              text={`Hello, ${user?.name || "Student"}`}
-              typingSpeed={60}
-              pauseDuration={1200}
-              cursorCharacter="_"
-              className="inline"
-              showCursor
-              textColors={["blue"]}
-            />
-          </h1>
-
-          <div className="flex items-center gap-4">
-            <button className="relative p-2 text-slate-600 hover:text-blue-600 transition">
-              <Bell size={18} />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full  text-blue-700"></span>
-            </button>
-
-            <Link
-              href="/dashboard/profile"
-              className="flex items-center gap-2 hover:opacity-80 transition"
-            >
-              <div className="w-9 h-9 bg-blue-200 rounded-full flex items-center justify-center text-xs font-semibold text-blue-700">
-                {user?.name?.charAt(0) || "U"}
-              </div>
-              <span className="text-sm font-semibold"></span>
-            </Link>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          <StatCard title="Total Test" value={stats.totalTests} />
-          <StatCard title="Completed Test" value={stats.completedTests} />
-          <StatCard title="Available Tests" value={stats.availableTests} />
-          <StatCard
-            title="Average Score"
-            value={stats.averageScore ? `${stats.averageScore}%` : "0%"}
-          />
-        </div>
-
-        {/* Courses and Calendar */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white rounded-2xl p-4 shadow flex flex-col h-[320px] sm:h-[360px] lg:h-full">
-            <h2 className="font-bold mb-6 text-blue-700">Test Performance</h2>
-
-            {/* Chart Container */}
-            <div className="flex gap-4 flex-1">
-              {/* Y-axis (left) */}
-              <div className="flex flex-col justify-between items-end pr-2 h-full text-sm font-semibold text-slate-600">
-                <span>100</span>
-                <span>80</span>
-                <span>60</span>
-                <span>40</span>
-                <span>20</span>
-                <span>0</span>
-              </div>
-
-              {/* Chart Area */}
-              <div className="flex-1 flex flex-col h-full">
-                {/* Chart Bars */}
-                <div className="flex-1 flex items-end gap-2 border-l-2 border-slate-400 border-b-2 px-2 box-border">
-                  {courseActivity.map((test, idx) => (
-                    <div
-                      key={idx}
-                      className="flex-1 flex flex-col items-center h-full justify-end"
-                    >
-                      <div
-                        className="w-full max-w-12 bg-gradient-to-t from-blue-600 to-blue-400 rounded-t-lg transition-all hover:shadow-lg hover:from-blue-700 hover:to-blue-500"
-                        style={{ height: `${test.score}%` }}
-                        title={`${test.course}: ${test.score}%`}
-                      ></div>
+                      {/* Data Points */}
+                      {courseActivity.map((test, i) => (
+                        <circle
+                          key={i}
+                          cx={(i / (courseActivity.length - 1)) * 100}
+                          cy={100 - test.score}
+                          r="2.5"
+                          fill="white"
+                          stroke="#2563eb"
+                          strokeWidth="2"
+                          className="hover:r-4 transition-all duration-300 cursor-pointer"
+                        >
+                          <title>{`${test.course}: ${test.score}%`}</title>
+                        </circle>
+                      ))}
+                    </svg>
+                  ) : courseActivity.length === 1 ? (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                       <div className="text-center">
+                          <div className="w-4 h-4 rounded-full bg-blue-600 animate-ping mb-4 mx-auto"></div>
+                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{courseActivity[0].score}% Accuracy</p>
+                       </div>
                     </div>
-                  ))}
-                </div>
-
-                {/* X-axis Labels (Test Numbers) */}
-                <div className="flex gap-2 px-2">
-                  {courseActivity.map((test, idx) => (
-                    <div
-                      key={idx}
-                      className="flex-1 text-center text-xs font-semibold text-slate-600"
-                    >
-                      Test {idx + 1}
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center text-slate-300 font-bold uppercase tracking-widest text-xs">
+                      No Data Points Available
                     </div>
-                  ))}
-                </div>
-              </div>
+                  )}
+               </div>
+
+               {/* X-axis labels */}
+               <div className="h-6 flex justify-between px-0 pt-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                  {courseActivity.length > 0 ? (
+                    courseActivity.map((test, i) => (
+                      <span 
+                        key={i} 
+                        className="flex-1 text-center"
+                        title={test.course}
+                      >
+                        {courseActivity.length > 5 ? `T${i + 1}` : test.course.split(' ')[0]}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="w-full text-center">Empty Horizon</span>
+                  )}
+               </div>
             </div>
           </div>
-
-          {/* Calendar */}
-          <ParticleCard glowColor="29, 78, 216" particleCount={20}>
-            <EventCalendar
-              currentDate={currentDate}
-              setCurrentDate={setCurrentDate}
-              events={events}
-              selectedDate={selectedDate}
-              setSelectedDate={setSelectedDate}
-              setShowAddForm={setShowAddForm}
-            />
-          </ParticleCard>
         </div>
 
-        {/* Event Modal */}
-        {showAddForm && selectedDate && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-md flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl p-6 max-w-md w-full max-h-96 overflow-y-auto">
-              <h3 className="text-xl font-bold mb-4 text-slate-900">
-                {months[currentDate.getMonth()]} {selectedDate},{" "}
-                {currentDate.getFullYear()}
-              </h3>
+        {/* Calendar */}
+        <ParticleCard glowColor="29, 78, 216" particleCount={20}>
+          <EventCalendar
+            currentDate={currentDate}
+            setCurrentDate={setCurrentDate}
+            events={events}
+            selectedDate={selectedDate}
+            setSelectedDate={setSelectedDate}
+            setShowAddForm={setShowAddForm}
+          />
+        </ParticleCard>
+      </div>
 
-              {/* Existing Events */}
-              <div className="mb-6">
-                <h4 className="text-xs font-semibold text-slate-600 mb-3">
-                  Events
-                </h4>
+      {/* Event Modal */}
+      {showAddForm && selectedDate && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-xl font-black text-slate-900 tracking-tight">
+                {months[currentDate.getMonth()]} {selectedDate}
+              </h3>
+              <button 
+                onClick={() => setShowAddForm(false)}
+                className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400"
+              >✕</button>
+            </div>
+
+            {/* Existing Events */}
+            <div className="mb-8">
+              <h4 className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-4">
+                Scheduled Events
+              </h4>
+              <div className="space-y-3 max-h-40 overflow-y-auto pr-2 custom-scrollbar">
                 {events.filter(
                   (e) =>
                     e.date === selectedDate &&
                     e.month === currentDate.getMonth(),
                 ).length === 0 ? (
-                  <p className="text-slate-400 text-sm mb-4">
-                    No events added yet
-                  </p>
+                  <p className="text-slate-400 text-sm italic">No events scheduled.</p>
                 ) : (
-                  <div className="space-y-2 mb-4">
-                    {events
-                      .filter(
-                        (e) =>
-                          e.date === selectedDate &&
-                          e.month === currentDate.getMonth(),
-                      )
-                      .map((event) => (
-                        <div
-                          key={event.id}
-                          className="flex items-center justify-between bg-blue-50 p-3 rounded-lg border-l-4 border-blue-600"
+                  events
+                    .filter(
+                      (e) =>
+                        e.date === selectedDate &&
+                        e.month === currentDate.getMonth(),
+                    )
+                    .map((event) => (
+                      <div
+                        key={event.id}
+                        className="flex items-center justify-between bg-blue-50/50 p-4 rounded-2xl border-l-4 border-blue-600 group"
+                      >
+                        <span className="text-sm font-bold text-slate-700">
+                          {event.title}
+                        </span>
+                        <button
+                          onClick={() => {
+                            setEvents(
+                              events.filter((e) => e.id !== event.id),
+                            );
+                          }}
+                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-all font-bold"
                         >
-                          <span className="text-sm font-semibold text-slate-900">
-                            {event.title}
-                          </span>
-                          <button
-                            onClick={() => {
-                              setEvents(
-                                events.filter((e) => e.id !== event.id),
-                              );
-                            }}
-                            className="text-red-500 hover:text-red-700 text-lg font-bold transition"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      ))}
-                  </div>
+                          Delete
+                        </button>
+                      </div>
+                    ))
                 )}
               </div>
+            </div>
 
-              {/* Add Event Section */}
-              <div className="border-t border-slate-200 pt-4">
-                <h4 className="text-xs font-semibold text-slate-600 mb-3">
-                  Add New Event
-                </h4>
+            {/* Add Event Section */}
+            <div className="pt-6 border-t border-slate-100">
+              <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">
+                Quick Add
+              </h4>
+              <div className="flex gap-2">
                 <input
                   type="text"
-                  placeholder="Event title"
+                  placeholder="Enter event title..."
                   value={eventTitle}
                   onChange={(e) => setEventTitle(e.target.value)}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+                  className="flex-1 bg-slate-50 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-600 transition-all outline-none"
                 />
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      if (eventTitle.trim()) {
-                        setEvents([
-                          ...events,
-                          {
-                            id: Date.now(),
-                            date: selectedDate,
-                            month: currentDate.getMonth(),
-                            year: currentDate.getFullYear(),
-                            title: eventTitle,
-                          },
-                        ]);
-                        setEventTitle("");
-                      }
-                    }}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-semibold hover:bg-blue-700 transition"
-                  >
-                    Add
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowAddForm(false);
+                <button
+                  onClick={() => {
+                    if (eventTitle.trim()) {
+                      setEvents([
+                        ...events,
+                        {
+                          id: Date.now(),
+                          date: selectedDate,
+                          month: currentDate.getMonth(),
+                          year: currentDate.getFullYear(),
+                          title: eventTitle,
+                        },
+                      ]);
                       setEventTitle("");
-                    }}
-                    className="flex-1 bg-slate-200 text-slate-700 py-2 rounded-lg font-semibold hover:bg-slate-300 transition"
-                  >
-                    Close
-                  </button>
-                </div>
+                    }
+                  }}
+                  className="bg-blue-600 text-white px-6 rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-blue-200 transition-all active:scale-95"
+                >
+                  Save
+                </button>
               </div>
             </div>
           </div>
-        )}
-      </main>
-    </div>
-  );
-}
-
-/* Components */
-
-function SidebarItem({ icon, label, active }) {
-  return (
-    <div
-      className={`flex items-center gap-3 px-4 py-2 rounded-xl cursor-pointer font-semibold
-      ${active ? "bg-blue-100 text-blue-700" : "hover:bg-slate-100"}`}
-    >
-      {icon}
-      {label}
-    </div>
+        </div>
+      )}
+    </DashboardLayout>
   );
 }
 
 function StatCard({ title, value }) {
   return (
     <ParticleCard glowColor="59, 130, 246" particleCount={8}>
-      <div className="bg-white p-4 rounded-2xl shadow hover:shadow-xl transition">
-        <p className="text-xs font-bold text-slate-400 uppercase mb-2">
+      <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-50 hover:shadow-xl hover:shadow-blue-100/50 transition-all duration-300 group">
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 group-hover:text-blue-600 transition-colors">
           {title}
         </p>
-        <p className="text-2xl font-black text-slate-900">{value}</p>
+        <p className="text-3xl font-black text-slate-900 tracking-tighter group-hover:scale-105 transition-transform origin-left">{value}</p>
       </div>
     </ParticleCard>
   );
@@ -524,30 +410,38 @@ function EventCalendar({
   for (let i = 0; i < firstDay; i++) days.push(null);
   for (let i = 1; i <= daysInMonth; i++) days.push(i);
   while (days.length < 42) days.push(null);
+
   const isEventDay = (day) =>
     events.some((e) => e.date === day && e.month === currentDate.getMonth());
+
+  const isToday = (day) => {
+    const today = new Date();
+    return day === today.getDate() && 
+           currentDate.getMonth() === today.getMonth() && 
+           currentDate.getFullYear() === today.getFullYear();
+  }
+
   const handleDateClick = (day) => {
     setSelectedDate(day);
     setShowAddForm(true);
   };
 
   return (
-    <div className="bg-white rounded-2xl p-3 shadow border border-slate-200">
-      <div className="flex items-center justify-between mb-0.5">
-        <h3 className="text-base font-bold text-slate-900">
+    <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
+      <div className="flex items-center justify-between mb-8">
+        <h3 className="text-xl font-black text-slate-900 tracking-tight capitalize">
           {months[currentDate.getMonth()]} {currentDate.getFullYear()}
         </h3>
-        <div className="flex gap-1">
+        <div className="flex gap-2">
           <button
             onClick={() =>
               setCurrentDate(
                 new Date(currentDate.getFullYear(), currentDate.getMonth() - 1),
               )
             }
-            className="p-2 hover:bg-blue-600 hover:text-white text-slate-600 rounded-lg transition duration-200"
-            title="Previous month"
+            className="p-3 hover:bg-blue-600 hover:text-white text-slate-400 rounded-2xl transition-all duration-300 shadow-sm"
           >
-            ←
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
           <button
             onClick={() =>
@@ -555,36 +449,37 @@ function EventCalendar({
                 new Date(currentDate.getFullYear(), currentDate.getMonth() + 1),
               )
             }
-            className="p-2 hover:bg-blue-600 hover:text-white text-slate-600 rounded-lg transition duration-200"
-            title="Next month"
+            className="p-3 hover:bg-blue-600 hover:text-white text-slate-400 rounded-2xl transition-all duration-300 shadow-sm"
           >
-            →
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-2 mb-1">
+      <div className="grid grid-cols-7 gap-3 mb-4">
         {daysOfWeek.map((day) => (
           <div
             key={day}
-            className="text-center text-[10px] font-bold text-blue-600 py-1 uppercase tracking-wider"
+            className="text-center text-[10px] font-black text-blue-600 uppercase tracking-widest"
           >
             {day}
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-2">
+      <div className="grid grid-cols-7 gap-3">
         {days.map((day, idx) => (
           <button
             key={idx}
             onClick={() => day && handleDateClick(day)}
-            className={`aspect-[1/0.78] flex items-center justify-center rounded-lg text-[11px] font-semibold transition duration-200 transform hover:scale-95 ${
+            className={`aspect-square flex items-center justify-center rounded-2xl text-xs font-bold transition-all duration-300 transform active:scale-90 ${
               day === null
-                ? "text-transparent"
+                ? "opacity-0 cursor-default"
                 : isEventDay(day)
-                  ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white shadow-md hover:shadow-lg"
-                  : "bg-white text-slate-700 hover:bg-blue-50 border border-slate-200"
+                  ? "bg-blue-600 text-white shadow-xl shadow-blue-200 ring-4 ring-blue-50"
+                  : isToday(day)
+                    ? "bg-blue-50 text-blue-700 ring-2 ring-blue-200"
+                    : "bg-slate-50 text-slate-600 hover:bg-white hover:shadow-lg hover:shadow-slate-100 hover:text-blue-600"
             }`}
           >
             {day}
