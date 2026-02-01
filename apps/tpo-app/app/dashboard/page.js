@@ -23,6 +23,7 @@ export default function AdminDashboard() {
     totalAttempts: 0,
     totalStudents: 0,
     averageScore: 0,
+    performanceDistribution: { high: 0, average: 0, low: 0 }
   });
   const [recentQuizzes, setRecentQuizzes] = useState([]);
   const [recentViolations, setRecentViolations] = useState([]);
@@ -36,16 +37,17 @@ export default function AdminDashboard() {
     async function fetchData() {
       try {
         const [statsData, examsData, violationsData] = await Promise.all([
-          apiFetch('/analytics/tpo/dashboard-stats'),
-          apiFetch('/exams'),
-          apiFetch('/analytics/tpo/recent-violations')
+          apiFetch('/analytics/tpo/dashboard-stats').catch(err => { console.error("Stats fetch failed:", err); return {}; }),
+          apiFetch('/exams').catch(err => { console.error("Exams fetch failed:", err); return []; }),
+          apiFetch('/analytics/tpo/recent-violations').catch(err => { console.error("Violations fetch failed:", err); return []; })
         ]);
 
         setStats({
           totalQuizzes: statsData.exam_count || 0,
-          totalAttempts: 0,
+          totalAttempts: statsData.total_attempts || 0,
           totalStudents: statsData.student_count || 0,
-          averageScore: statsData.participation_rate || 0,
+          averageScore: statsData.average_score || 0,
+          performanceDistribution: statsData.performance_distribution || { high: 0, average: 0, low: 0 }
         });
 
         if (Array.isArray(examsData)) {
@@ -109,7 +111,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="text-right">
                     <span className="text-xs font-bold bg-white px-2 py-1 rounded text-blue-600 shadow-sm border border-blue-100">
-                      {(quiz.questions || []).length} Qs
+                      {quiz.question_count || 0} Qs
                     </span>
                   </div>
                 </div>
@@ -122,9 +124,9 @@ export default function AdminDashboard() {
             <PieChart
               title="Student Performance (Avg)"
               data={[
-                { label: 'High Score (>80%)', value: 120, color: 'text-green-500', bgClass: 'bg-green-500' },
-                { label: 'Average (50-80%)', value: 85, color: 'text-blue-500', bgClass: 'bg-blue-500' },
-                { label: 'Needs Impr. (<50%)', value: 45, color: 'text-red-500', bgClass: 'bg-red-500' }
+                { label: 'High Score (>80%)', value: stats.performanceDistribution.high, color: 'text-green-500', bgClass: 'bg-green-500' },
+                { label: 'Average (50-80%)', value: stats.performanceDistribution.average, color: 'text-blue-500', bgClass: 'bg-blue-500' },
+                { label: 'Needs Impr. (<50%)', value: stats.performanceDistribution.low, color: 'text-red-500', bgClass: 'bg-red-500' }
               ]}
             />
           </div>

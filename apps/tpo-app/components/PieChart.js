@@ -67,7 +67,7 @@ const PieChart = ({ data, title }) => {
                             <div className="flex flex-col">
                                 <span className="text-xs font-bold text-slate-700">{item.label}</span>
                                 <span className="text-[10px] font-medium text-slate-400">
-                                    {Math.round((item.value / total) * 100)}%
+                                    {total > 0 ? Math.round((item.value / total) * 100) : 0}%
                                 </span>
                             </div>
                         </div>

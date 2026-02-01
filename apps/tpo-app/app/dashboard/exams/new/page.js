@@ -6,6 +6,7 @@ import { apiFetch } from '@/lib/api';
 
 export default function NewExamPage() {
   const [title, setTitle] = useState('');
+  const [code, setCode] = useState('');
   const [duration, setDuration] = useState(30);
   const [questions, setQuestions] = useState([
     { question: '', options: ['', '', '', ''], correct_answer: '' }
@@ -36,7 +37,7 @@ export default function NewExamPage() {
     try {
       const exam = await apiFetch('/exams', {
         method: 'POST',
-        body: JSON.stringify({ title, duration }),
+        body: JSON.stringify({ title, duration, code }),
       });
 
       await apiFetch(`/exams/${exam.id}/questions`, {
@@ -57,20 +58,33 @@ export default function NewExamPage() {
       <h2 className="text-3xl font-extrabold mb-8 text-blue-900">Create Placement Exam</h2>
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-slate-200 text-slate-900">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div>
               <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Exam Title</label>
               <input
                 type="text"
                 required
                 className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-blue-500 focus:ring-0 transition-all outline-none"
-                placeholder="e.g. TCS Ninja Aptitude Test"
+                placeholder="e.g. TCS Ninja Test"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
               />
             </div>
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Duration (minutes)</label>
+              <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Exam Code (6 Digits)</label>
+              <input
+                type="text"
+                required
+                maxLength="6"
+                pattern="\d{6}"
+                className="w-full border-2 border-slate-200 rounded-xl p-3 focus:border-blue-500 focus:ring-0 transition-all outline-none"
+                placeholder="123456"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-slate-700 mb-2 uppercase tracking-wide">Duration (mins)</label>
               <input
                 type="number"
                 required

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { apiFetch } from "@/lib/api";
 
 export default function EventCalendar() {
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -14,16 +15,29 @@ export default function EventCalendar() {
     const [notifiedEvents, setNotifiedEvents] = useState(new Set());
     const [notification, setNotification] = useState(null);
     const [mounted, setMounted] = useState(false);
-
     // Handle Hydration - Set initial data only on client
     useEffect(() => {
         setMounted(true);
-        const todayStr = new Date().toISOString().split('T')[0];
-        setEvents([
-            { date: todayStr, title: "Placement Drive", type: "exam", time: "10:00" },
-        ]);
+        fetchEvents();
         setCurrentDate(new Date());
     }, []);
+
+    const fetchEvents = async () => {
+        try {
+            const data = await apiFetch('/events');
+            // Map backend fields to frontend expected ones
+            const mapped = data.map(ev => ({
+                id: ev.id,
+                date: ev.event_date,
+                title: ev.title,
+                type: ev.type,
+                time: ev.event_time
+            }));
+            setEvents(mapped);
+        } catch (err) {
+            console.error("Failed to fetch events", err);
+        }
+    };
 
     // Check for upcoming events every minute
     useEffect(() => {
@@ -85,12 +99,30 @@ export default function EventCalendar() {
 
     const days = ["S", "M", "T", "W", "T", "F", "S"];
 
+    // NOTE: The provided "Code Edit" snippet for PieChart seems to be out of context for this file.
+    // Assuming the user intended to add a PieChart component elsewhere or this was a mistake.
+    // The `formatDate` function below is already present and correct for YYYY-MM-DD.
+    // The instruction "restrict past date selections" is already implemented in `handleDateClick`.
+
+    const formatDate = (date) => {
+        const d = new Date(date);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const handleDateClick = (day) => {
         const clickedDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-        const offset = clickedDate.getTimezoneOffset();
-        const adjDate = new Date(clickedDate.getTime() - (offset * 60 * 1000));
-        const dateStr = adjDate.toISOString().split('T')[0];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
+        if (clickedDate < today) {
+            showNotification("Cannot manage events for past dates");
+            return;
+        }
+
+        const dateStr = formatDate(clickedDate);
         setSelectedDate(dateStr);
         setIsModalOpen(true);
     };
@@ -100,36 +132,52 @@ export default function EventCalendar() {
         setTimeout(() => setNotification(null), 5000);
     };
 
-    const handleAddEvent = (e) => {
+    const handleAddEvent = async (e) => {
         e.preventDefault();
         if (!newEventTitle.trim()) return;
 
-        setEvents([...events, {
-            date: selectedDate,
-            title: newEventTitle,
-            type: newEventType,
-            time: newEventTime
-        }]);
-
-        let timeStr = "";
         try {
-            timeStr = new Date(`2000-01-01T${newEventTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+            const newEvent = {
+                title: newEventTitle,
+                type: newEventType,
+                date: selectedDate,
+                time: newEventTime
+            };
+
+            const saved = await apiFetch('/events', {
+                method: 'POST',
+                body: JSON.stringify(newEvent)
+            });
+
+            setEvents([...events, {
+                id: saved.id,
+                date: saved.event_date,
+                title: saved.title,
+                type: saved.type,
+                time: saved.event_time
+            }]);
+
+            let timeStr = "";
+            try {
+                timeStr = new Date(`2000-01-01T${newEventTime}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+            } catch (err) {
+                timeStr = newEventTime;
+            }
+
+            showNotification(`New Event Added at ${timeStr}`);
+
+            setNewEventTitle("");
+            setNewEventTime("09:00");
+            setIsModalOpen(false);
         } catch (err) {
-            timeStr = newEventTime;
+            console.error("Failed to add event", err);
+            showNotification("Failed to save event");
         }
-
-        showNotification(`New Event Added at ${timeStr}`);
-
-        setNewEventTitle("");
-        setNewEventTime("09:00");
-        setIsModalOpen(false);
     };
 
     const getEventsForDate = (day) => {
         const targetDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
-        const offset = targetDate.getTimezoneOffset();
-        const adjDate = new Date(targetDate.getTime() - (offset * 60 * 1000));
-        const dateStr = adjDate.toISOString().split('T')[0];
+        const dateStr = formatDate(targetDate);
         return events.filter(e => e.date === dateStr);
     };
 
@@ -208,8 +256,8 @@ export default function EventCalendar() {
             </div>
 
             <div className="grid grid-cols-7 gap-1 mb-4 text-center">
-                {days.map((day) => (
-                    <div key={day} className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                {days.map((day, index) => (
+                    <div key={index} className="text-xs font-bold text-slate-400 uppercase tracking-widest">
                         {day}
                     </div>
                 ))}
@@ -217,23 +265,6 @@ export default function EventCalendar() {
 
             <div className="grid grid-cols-7 gap-2 place-items-center mb-4 flex-1">
                 {renderCalendarDays()}
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
-                    <span className="text-xs font-bold text-slate-500">Event Scheduled</span>
-                </div>
-                <button
-                    onClick={() => {
-                        const todayStr = new Date().toISOString().split('T')[0];
-                        setSelectedDate(todayStr);
-                        setIsModalOpen(true);
-                    }}
-                    className="text-xs font-bold text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition"
-                >
-                    + Add Event
-                </button>
             </div>
 
             {isModalOpen && (
@@ -272,8 +303,15 @@ export default function EventCalendar() {
                                         <span className="text-[10px] uppercase font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded self-start">{ev.type}</span>
                                     </div>
                                     <button
-                                        onClick={() => {
-                                            setEvents(events.filter(e => e !== ev));
+                                        onClick={async () => {
+                                            try {
+                                                await apiFetch(`/events/${ev.id}`, { method: 'DELETE' });
+                                                setEvents(events.filter(e => e.id !== ev.id));
+                                                showNotification("Event Removed");
+                                            } catch (err) {
+                                                console.error("Failed to delete event", err);
+                                                showNotification("Failed to remove event");
+                                            }
                                         }}
                                         className="text-xs text-red-400 hover:text-red-600 px-2"
                                     >

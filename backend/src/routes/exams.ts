@@ -10,30 +10,31 @@ router.get('/', authenticateJWT, collegeIsolation, async (req: AuthRequest, res:
     try {
         let sql = `
             SELECT e.*, 
-                   (CASE WHEN a.submitted_at IS NOT NULL THEN true ELSE false END) as is_attempted,
-                   a.score
+                   (SELECT COUNT(*) FROM questions WHERE exam_id = e.id) as question_count,
+                   EXISTS (SELECT 1 FROM attempts WHERE exam_id = e.id AND student_id = $1 AND submitted_at IS NOT NULL) as is_attempted,
+                   (SELECT score FROM attempts WHERE exam_id = e.id AND student_id = $1 ORDER BY created_at DESC LIMIT 1) as score
             FROM exams e
-            LEFT JOIN LATERAL (
-                SELECT submitted_at, score 
-                FROM attempts 
-                WHERE exam_id = e.id AND student_id = $1 
-                ORDER BY created_at DESC 
-                LIMIT 1
-            ) a ON true
             WHERE 1=1
         `;
         const params: any[] = [req.user?.id];
 
         if (req.user?.role !== 'admin') {
+            const collegeId = req.user?.college_id || null;
             sql += ' AND e.college_id = $2';
-            params.push(req.user?.college_id);
+            params.push(collegeId);
         }
 
         const result = await query(sql, params);
+        
+        // Debug log to help identify why no data is returned
+        if (result.rows.length === 0) {
+            console.log(`No exams found for user ${req.user?.id} in college ${req.user?.college_id}`);
+        }
+
         res.json(result.rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to fetch exams' });
+    } catch (err: any) {
+        console.error('Fetch Exams Error:', err);
+        res.status(500).json({ error: 'Failed to fetch exams', details: err.message });
     }
 });
 
@@ -56,14 +57,15 @@ router.get('/:examId/questions', authenticateJWT, collegeIsolation, async (req: 
 
 // Create an exam (TPO only)
 router.post('/', authenticateJWT, authorizeRoles('tpo'), async (req: AuthRequest, res: any) => {
-    const { title, duration } = req.body;
+    const { title, duration, code } = req.body;
     try {
         const result = await query(
-            'INSERT INTO exams (title, duration, college_id, created_by) VALUES ($1, $2, $3, $4) RETURNING *',
-            [title, duration, req.user?.college_id, req.user?.id]
+            'INSERT INTO exams (title, code, duration, college_id, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+            [title, code, duration, req.user?.college_id, req.user?.id]
         );
         res.status(201).json(result.rows[0]);
     } catch (err) {
+        console.error('Create Exam Error:', err);
         res.status(500).json({ error: 'Failed to create exam' });
     }
 });
@@ -80,11 +82,17 @@ router.post('/:examId/questions', authenticateJWT, authorizeRoles('tpo'), async 
             return res.status(403).json({ error: 'Unauthorized or Exam not found' });
         }
 
-        const values = questions.map((q: any) => `('${examId}', '${q.question}', '${JSON.stringify(q.options)}', '${q.correct_answer}')`).join(',');
-        await query(`INSERT INTO questions (exam_id, question, options, correct_answer) VALUES ${values}`);
+        // Use separate parameterized inserts for each question to avoid formatting issues and SQL injection
+        for (const q of questions) {
+            await query(
+                'INSERT INTO questions (exam_id, question, options, correct_answer) VALUES ($1, $2, $3, $4)',
+                [examId, q.question, JSON.stringify(q.options), q.correct_answer]
+            );
+        }
 
         res.status(201).json({ message: 'Questions added' });
     } catch (err) {
+        console.error('Add Questions Error:', err);
         res.status(500).json({ error: 'Failed to add questions' });
     }
 });

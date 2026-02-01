@@ -126,7 +126,7 @@ router.get('/tpo/exam-stats/:examId', authenticateJWT, authorizeRoles('tpo'), as
 // TPO: Get Dashboard Stats (College Name, Counts)
 router.get('/tpo/dashboard-stats', authenticateJWT, authorizeRoles('tpo'), async (req: AuthRequest, res: any) => {
     try {
-        const collegeId = req.user?.college_id;
+        const collegeId = req.user?.college_id || null;
 
         // 1. College Name
         const college = await query('SELECT name FROM colleges WHERE id = $1', [collegeId]);
@@ -141,25 +141,82 @@ router.get('/tpo/dashboard-stats', authenticateJWT, authorizeRoles('tpo'), async
         const studentCount = parseInt(students.rows[0].count);
 
         // 4. Participation Rate (Total Attempts / (Exams * Students))
-        // This is a rough metric. 
-        const totalAttempts = await query(`
+        const totalAttemptsResult = await query(`
             SELECT COUNT(*) 
             FROM attempts a
             JOIN exams e ON a.exam_id = e.id
             WHERE e.college_id = $1
         `, [collegeId]);
-        const attemptCount = parseInt(totalAttempts.rows[0].count);
+        const attemptCount = parseInt(totalAttemptsResult.rows[0].count);
 
         const possibleAttempts = examCount * studentCount;
         const participationRate = possibleAttempts > 0
             ? Math.round((attemptCount / possibleAttempts) * 100)
             : 0;
 
+        // 5. Total Attempts (Submitted)
+        const submittedAttempts = await query(`
+            SELECT COUNT(*) 
+            FROM attempts a
+            JOIN exams e ON a.exam_id = e.id
+            WHERE e.college_id = $1 AND a.submitted_at IS NOT NULL
+        `, [collegeId]);
+        const submittedCount = parseInt(submittedAttempts.rows[0].count);
+
+        // 6. Average Score (Percentage across all submitted attempts)
+        const avgScoreResult = await query(`
+            SELECT 
+                AVG(
+                    CASE 
+                        WHEN (SELECT COUNT(*) FROM questions q WHERE q.exam_id = a.exam_id) > 0 
+                        THEN (CAST(a.score AS FLOAT) / (SELECT COUNT(*) FROM questions q WHERE q.exam_id = a.exam_id)) * 100 
+                        ELSE 0 
+                    END
+                ) as avg_score
+            FROM attempts a
+            JOIN exams e ON a.exam_id = e.id
+            WHERE e.college_id = $1 AND a.submitted_at IS NOT NULL
+        `, [collegeId]);
+        const averageScore = Math.round(parseFloat(avgScoreResult.rows[0].avg_score || '0'));
+
+        // 7. Performance Distribution
+        const performanceResult = await query(`
+            WITH student_scores AS (
+                SELECT 
+                    a.student_id,
+                    AVG(
+                        CASE 
+                            WHEN (SELECT COUNT(*) FROM questions q WHERE q.exam_id = a.exam_id) > 0 
+                            THEN (CAST(a.score AS FLOAT) / (SELECT COUNT(*) FROM questions q WHERE q.exam_id = a.exam_id)) * 100 
+                            ELSE 0 
+                        END
+                    ) as avg_student_score
+                FROM attempts a
+                JOIN exams e ON a.exam_id = e.id
+                WHERE e.college_id = $1 AND a.submitted_at IS NOT NULL
+                GROUP BY a.student_id
+            )
+            SELECT 
+                COUNT(*) FILTER (WHERE avg_student_score >= 80) as high,
+                COUNT(*) FILTER (WHERE avg_student_score >= 50 AND avg_student_score < 80) as average,
+                COUNT(*) FILTER (WHERE avg_student_score < 50) as low
+            FROM student_scores
+        `, [collegeId]);
+
+        const distribution = performanceResult.rows[0];
+
         res.json({
             college_name: collegeName,
             exam_count: examCount,
             student_count: studentCount,
-            participation_rate: participationRate
+            participation_rate: participationRate,
+            total_attempts: submittedCount,
+            average_score: averageScore,
+            performance_distribution: {
+                high: parseInt(distribution.high || '0'),
+                average: parseInt(distribution.average || '0'),
+                low: parseInt(distribution.low || '0')
+            }
         });
     } catch (err) {
         console.error('Dashboard Stats Error:', err);
@@ -216,6 +273,9 @@ router.get('/tpo/students', authenticateJWT, authorizeRoles('tpo'), async (req: 
 // TPO: Get Recent Violations (Global Feed)
 router.get('/tpo/recent-violations', authenticateJWT, authorizeRoles('tpo'), async (req: AuthRequest, res: any) => {
     try {
+        const collegeId = req.user?.college_id || null;
+        
+        // Joined version that specifically only gets violations for this TPO's college
         const result = await query(`
             SELECT 
                 a.id,
@@ -223,19 +283,18 @@ router.get('/tpo/recent-violations', authenticateJWT, authorizeRoles('tpo'), asy
                 json_agg(json_build_object('type', il.type, 'timestamp', il.created_at)) as violations,
                 MAX(il.created_at) as latest_violation
             FROM integrity_logs il
-            JOIN attempts a ON il.attempt_id = a.id
-            JOIN users u ON a.student_id = u.id
-            JOIN exams e ON a.exam_id = e.id
-            WHERE e.college_id = $1
+            INNER JOIN attempts a ON il.attempt_id = a.id
+            INNER JOIN users u ON a.student_id = u.id
+            WHERE u.college_id = $1
             GROUP BY a.id, u.name
-            ORDER BY latest_violation DESC
+            ORDER BY 4 DESC
             LIMIT 10
-        `, [req.user?.college_id]);
+        `, [collegeId]);
 
         res.json(result.rows);
-    } catch (err) {
+    } catch (err: any) {
         console.error('Recent Violations Error:', err);
-        res.status(500).json({ error: 'Failed to fetch recent violations' });
+        res.status(500).json({ error: 'Failed to fetch recent violations', details: err.message });
     }
 });
 
