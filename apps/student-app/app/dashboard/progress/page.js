@@ -1,167 +1,152 @@
-"use client";
+'use client';
 
-import { useState, useEffect } from "react";
-import { apiFetch } from "@/lib/api";
-import { Trophy, Medal, Award, User } from "lucide-react";
+import { useState, useEffect, useMemo } from 'react';
+import { apiFetch } from '@/lib/api';
+import { Trophy, Medal, Award, Filter } from 'lucide-react';
+import { DashboardLayout } from '@/components/DashboardLayout';
+
+/* ---------- helpers ---------- */
+const formatYearLabel = (year) => {
+  if (year === 'All') return 'All Years';
+  if (year === 1) return '1st Year';
+  if (year === 2) return '2nd Year';
+  if (year === 3) return '3rd Year';
+  return `${year}th Year`;
+};
 
 export default function StudentProgressPage() {
   const [rankings, setRankings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
+  const [year, setYear] = useState('All');
 
   useEffect(() => {
-    // Get current user for highlighting
-    const userData = localStorage.getItem("user");
-    if (userData) {
-      setCurrentUser(JSON.parse(userData));
-    }
+    const userData = localStorage.getItem('user');
+    if (userData) setCurrentUser(JSON.parse(userData));
 
-    // Fetch rankings
-    apiFetch("/analytics/student/rankings")
+    apiFetch('/analytics/student/rankings')
       .then(setRankings)
       .catch(console.error)
       .finally(() => setLoading(false));
   }, []);
 
+  /* ---------- derive years from data ---------- */
+  const availableYears = useMemo(() => {
+    const yrs = rankings.map(r => r.year).filter(Boolean);
+    return ['All', ...Array.from(new Set(yrs)).sort((a, b) => a - b)];
+  }, [rankings]);
+
+  /* ---------- frontend filtering ---------- */
+  const filteredRankings = useMemo(() => {
+    if (year === 'All') return rankings;
+    return rankings.filter(r => r.year === Number(year));
+  }, [rankings, year]);
+
   const getRankIcon = (rank) => {
-    switch (rank) {
-      case 1:
-        return <Trophy className="text-yellow-500" size={24} />;
-      case 2:
-        return <Medal className="text-gray-400" size={24} />;
-      case 3:
-        return <Award className="text-orange-500" size={24} />;
-      default:
-        return (
-          <span className="font-bold text-slate-500 w-6 text-center">
-            {rank}
-          </span>
-        );
-    }
+    if (rank === 1) return <Trophy className="text-yellow-500" size={18} />;
+    if (rank === 2) return <Medal className="text-slate-400" size={18} />;
+    if (rank === 3) return <Award className="text-orange-500" size={18} />;
+    return <span className="font-black text-slate-500 text-sm">{rank}</span>;
   };
 
-  const getRowStyle = (studentId) => {
-    const isCurrentUser = currentUser?.id === studentId;
-    if (isCurrentUser) return "bg-blue-50 border-blue-200 ring-2 ring-blue-100";
-    return "bg-white border-slate-100 hover:bg-slate-50";
-  };
+  const getRowStyle = (studentId) =>
+    currentUser?.id === studentId
+      ? 'bg-blue-50 border-blue-200 ring-2 ring-blue-100'
+      : 'bg-white border-slate-100 hover:bg-slate-50';
 
   return (
-    <div className="p-4 md:p-8 bg-[#e8edff] min-h-screen">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-          <div>
-            <h2 className="text-3xl font-black text-slate-800 uppercase tracking-tight italic">
-              Class Standings
-            </h2>
-            <p className="text-slate-500 font-medium text-sm mt-1">
-              Track your progress against peers.
-            </p>
-          </div>
+    <DashboardLayout>
+      <div className="max-w-5xl mx-auto space-y-8">
 
-          {/* User's Current Rank Summary */}
-          {!loading && currentUser && (
-            <div className="bg-white px-6 py-3 rounded-xl shadow-sm border border-blue-100 flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-xs font-bold text-slate-400 uppercase">
-                  Your Rank
-                </p>
-                <p className="text-2xl font-black text-blue-600 leading-none">
-                  #
-                  {rankings.find((r) => r.student_id === currentUser.id)
-                    ?.rank || "-"}
-                </p>
-              </div>
-              <div className="h-8 w-px bg-slate-200"></div>
-              <div>
-                <p className="text-xs font-bold text-slate-400 uppercase">
-                  Total Score
-                </p>
-                <p className="text-lg font-bold text-slate-800 leading-none">
-                  {rankings.find((r) => r.student_id === currentUser.id)
-                    ?.total_score || 0}
-                </p>
-              </div>
-            </div>
-          )}
+        {/* Header */}
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-blue-600 mb-1">
+            Performance
+          </p>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            Class Standings
+          </h2>
         </div>
 
+        {/* Year Filter */}
+        <div className="flex items-center gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="flex items-center gap-2 text-slate-500">
+            <Filter size={16} />
+            <span className="text-xs font-black text-black uppercase tracking-widest">
+              Year
+            </span>
+          </div>
+
+          <select
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+            className="px-4 py-2 rounded-xl text-sm font-bold bg-slate-50
+              border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-black"
+          >
+            {availableYears.map(y => (
+              <option key={y} value={y}>
+                {formatYearLabel(y)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Content */}
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-4 border-blue-600 mb-4"></div>
-            <p className="text-slate-500 font-bold uppercase tracking-widest animate-pulse">
-              Calculating Ranks...
+          <div className="flex justify-center py-20">
+            <div className="animate-spin h-8 w-8 border-b-4 border-blue-600 rounded-full" />
+          </div>
+        ) : filteredRankings.length === 0 ? (
+          <div className="bg-white p-16 rounded-2xl border border-dashed border-slate-200 text-center">
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">
+              No data for selected year
             </p>
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* Header Row (Hidden on mobile) */}
-            <div className="hidden md:grid grid-cols-12 gap-4 px-6 py-3 text-xs font-bold text-slate-400 uppercase tracking-widest">
-              <div className="col-span-1 text-center">Rank</div>
-              <div className="col-span-6">Student</div>
-              <div className="col-span-2 text-center">Exams</div>
-              <div className="col-span-3 text-right">Total Score</div>
-            </div>
-
-            {/* List Items */}
-            {rankings.map((student) => (
+          <div className="space-y-3">
+            {filteredRankings.map(student => (
               <div
                 key={student.student_id}
-                className={`rounded-2xl p-4 md:p-6 shadow-sm border transition-all ${getRowStyle(student.student_id)}`}
+                className={`rounded-2xl p-4 border shadow-sm transition-all ${getRowStyle(student.student_id)}`}
               >
-                <div className="flex items-center justify-between md:grid md:grid-cols-12 md:gap-4">
-                  {/* Rank & Name Section */}
-                  <div className="flex items-center gap-4 md:col-span-7">
-                    <div className="flex-shrink-0 w-10 h-10 flex items-center justify-center bg-white rounded-full shadow-sm border border-slate-100">
+                <div className="flex items-center justify-between">
+
+                  {/* Left */}
+                  <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 flex items-center justify-center bg-white rounded-full border border-slate-100">
                       {getRankIcon(student.rank)}
                     </div>
                     <div>
-                      <h3
-                        className={`font-bold text-lg ${currentUser?.id === student.student_id ? "text-blue-700" : "text-slate-800"}`}
-                      >
+                      <h3 className="font-black text-sm text-slate-800">
                         {student.name}
                         {currentUser?.id === student.student_id && (
-                          <span className="ml-2 text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full align-middle">
+                          <span className="ml-2 text-[9px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">
                             YOU
                           </span>
                         )}
                       </h3>
-                      <p className="md:hidden text-xs font-semibold text-slate-400 mt-0.5">
-                        {student.exams_taken} Exams Taken
+                      <p className="text-[11px] font-bold text-slate-400">
+                        {formatYearLabel(student.year)}
                       </p>
                     </div>
                   </div>
 
-                  {/* Desktop Stats */}
-                  <div className="hidden md:flex md:col-span-2 items-center justify-center">
-                    <span className="font-bold text-slate-600 bg-slate-100 px-3 py-1 rounded-lg">
-                      {student.exams_taken}
-                    </span>
+                  {/* Right */}
+                  <div className="text-right">
+                    <p className="text-lg font-black text-slate-900">
+                      {student.total_score}
+                    </p>
+                    <p className="text-[10px] font-bold uppercase text-slate-400">
+                      Points
+                    </p>
                   </div>
 
-                  {/* Score Section */}
-                  <div className="flex flex-col items-end md:col-span-3 md:justify-center">
-                    <span className="text-2xl font-black text-slate-900">
-                      {student.total_score}
-                    </span>
-                    <span className="md:hidden text-[10px] font-bold text-slate-400 uppercase">
-                      Points
-                    </span>
-                  </div>
                 </div>
               </div>
             ))}
-
-            {rankings.length === 0 && (
-              <div className="bg-white p-20 rounded-2xl border-2 border-dashed border-slate-200 text-center">
-                <p className="text-slate-400 font-bold uppercase tracking-widest">
-                  No rankings available yet.
-                </p>
-              </div>
-            )}
           </div>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   );
 }

@@ -57,7 +57,7 @@ const StudentCareer = () => {
         {/* Header Section */}
         <div>
           <h1 className="text-3xl font-bold text-blue-600 tracking-tight">Career Mapping</h1>
-          <p className="text-muted-foreground mt-2 text-lg">
+          <p className="text-muted-foreground mt-2 text-lg text-black">
             Get a personalized roadmap to achieve your career goals
           </p>
         </div>
@@ -71,7 +71,7 @@ const StudentCareer = () => {
                   <Sparkles className="w-5 h-5 text-blue-600" />
                 </div>
                 <div>
-                  <h4 className="font-semibold text-foreground mb-1">AI-Powered Career Guidance</h4>
+                  <h4 className="font-semibold text-blue-500 mb-1">AI-Powered Career Guidance</h4>
                   <p className="text-sm text-muted-foreground leading-relaxed">
                     This feature uses AI to generate personalized career roadmaps targeted to your specific goals.
                     Currently validating with demo data. Full AI integration arriving in Phase 2.
@@ -95,7 +95,7 @@ const StudentCareer = () => {
             <CardContent>
               <div className="grid md:grid-cols-3 gap-6">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
+                  <label className="text-sm font-medium text-">
                     Desired Role
                   </label>
                   <Select value={selectedRole} onValueChange={setSelectedRole}>
@@ -111,7 +111,7 @@ const StudentCareer = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-foreground">
+                  <label className="text-sm font-medium text-black">
                     Timeline (Weeks)
                   </label>
                   <Select value={duration} onValueChange={setDuration}>
