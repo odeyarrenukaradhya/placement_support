@@ -149,7 +149,7 @@ export default function StudentDashboard() {
   return (
     <DashboardLayout>
       {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <StatCard title="Total Test" value={stats.totalTests} />
         <StatCard title="Completed Test" value={stats.completedTests} />
         <StatCard title="Available Tests" value={stats.availableTests} />
@@ -160,17 +160,17 @@ export default function StudentDashboard() {
       </div>
 
       {/* Courses and Calendar */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100 flex flex-col h-[400px]">
-          <h2 className="text-lg font-black mb-10 text-slate-800 tracking-tight flex items-center gap-2">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 flex flex-col h-[360px]">
+          <h2 className="text-lg font-black mb-4 text-slate-800 tracking-tight flex items-center gap-2">
             <span className="w-2 h-6 bg-blue-600 rounded-full"></span>
             Performance Analytics
           </h2>
 
           {/* Line Chart Container */}
-          <div className="flex gap-4 flex-1 relative min-h-0">
+          <div className="flex gap-2 flex-1 relative min-h-0">
             {/* Y-axis labels */}
-            <div className="flex flex-col justify-between items-end pr-2 h-full text-[10px] font-black text-slate-400 uppercase tracking-widest pb-6">
+            <div className="flex flex-col justify-between items-end pr-2 h-full text-[10px] font-black text-slate-400 uppercase tracking-widest pb-4">
               <span>100%</span>
               <span>75%</span>
               <span>50%</span>
@@ -346,7 +346,7 @@ export default function StudentDashboard() {
                   placeholder="Enter event title..."
                   value={eventTitle}
                   onChange={(e) => setEventTitle(e.target.value)}
-                  className="flex-1 bg-slate-50 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-600 transition-all outline-none"
+                  className="flex-1 text-slate-900 bg-slate-50 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-600 transition-all outline-none"
                 />
                 <button
                   onClick={() => {
@@ -427,8 +427,8 @@ function EventCalendar({
   };
 
   return (
-    <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-slate-100">
-      <div className="flex items-center justify-between mb-8">
+    <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 h-[360px] flex flex-col">
+      <div className="flex items-center justify-between mb-4">
         <h3 className="text-xl font-black text-slate-900 tracking-tight capitalize">
           {months[currentDate.getMonth()]} {currentDate.getFullYear()}
         </h3>
@@ -456,7 +456,7 @@ function EventCalendar({
         </div>
       </div>
 
-      <div className="grid grid-cols-7 gap-3 mb-4">
+      <div className="grid grid-cols-7 gap-2 mb-2 text-[10px]">
         {daysOfWeek.map((day) => (
           <div
             key={day}
@@ -467,12 +467,12 @@ function EventCalendar({
         ))}
       </div>
 
-      <div className="grid grid-cols-7 gap-3">
+      <div className="calendar-grid grid grid-cols-7 gap-2 flex-1">
         {days.map((day, idx) => (
           <button
             key={idx}
             onClick={() => day && handleDateClick(day)}
-            className={`aspect-square flex items-center justify-center rounded-2xl text-xs font-bold transition-all duration-300 transform active:scale-90 ${
+            className={`flex items-center justify-center rounded-2xl text-xs font-bold transition-all duration-300 transform active:scale-90 ${
               day === null
                 ? "opacity-0 cursor-default"
                 : isEventDay(day)

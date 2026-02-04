@@ -55,16 +55,11 @@ export function DashboardLayout({ children }) {
   return (
     <div className="h-screen bg-[#e8edff] flex overflow-hidden font-sans">
       {/* Sidebar (Desktop Only) */}
-      <aside className="hidden lg:block w-72 bg-white shadow-2xl p-8 z-20 flex-shrink-0 relative overflow-y-auto custom-scrollbar">
-        <div className="relative group cursor-pointer mb-10">
-          <img
-            src="https://lh3.googleusercontent.com/u/0/d/1f4qSF9eLf0IFr_bIiajaCJJkyuW2l_OB"
-            alt="Platform Logo"
-            className="h-16 w-auto object-contain transition-transform duration-300 group-hover:scale-105"
-          />
-          <div className="absolute -inset-1 bg-blue-100 rounded-full blur opacity-25" />
+      <aside className="hidden lg:block w-64 bg-white shadow-2xl p-6 z-20 flex-shrink-0 relative overflow-y-auto custom-scrollbar">
+        <div className="relative group cursor-pointer mb-4 flex items-center justify-center">
+          <img src="https://lh3.googleusercontent.com/u/0/d/1f4qSF9eLf0IFr_bIiajaCJJkyuW2l_OB" alt="Platform Logo" className="h-28 w-auto object-contain transition-transform duration-300 group-hover:scale-105" />
+          <div className="absolute -inset-3 bg-blue-100 rounded-full blur-xl opacity-30" />
         </div>
-
         <nav className="space-y-3">
           {navItems.map((item) => (
             <Link key={item.href} href={item.href}>
@@ -133,15 +128,15 @@ export function DashboardLayout({ children }) {
               >✕</button>
             </div>
 
-            <div className="flex items-center justify-center mb-10">
+            <div className="flex items-center justify-center mb-6">
               <img
                 src="https://lh3.googleusercontent.com/u/0/d/1f4qSF9eLf0IFr_bIiajaCJJkyuW2l_OB"
                 alt="Platform Logo"
-                className="h-20 w-auto"
+                className="h-28 w-auto"
               />
             </div>
 
-            <nav className="space-y-4">
+            <nav className="space-y-2">
               {navItems.map((item) => (
                 <Link key={item.href} href={item.href} onClick={() => setMobileSidebarOpen(false)}>
                   <SidebarItem
@@ -165,9 +160,9 @@ export function DashboardLayout({ children }) {
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-4 lg:p-8 pt-20 lg:pt-8 bg-[#f8fbff]">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-8 pt-12 lg:pt-4 bg-[#f8fbff]">
         {/* Desktop Top Bar (Hidden on Mobile) */}
-        <div className="hidden lg:flex justify-between items-center mb-8">
+        <div className="hidden lg:flex justify-between items-center mb-2">
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">
             <TextType
               text={`Hello, ${user?.name || "Student"}`}
