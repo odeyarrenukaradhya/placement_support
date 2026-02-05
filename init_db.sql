@@ -207,6 +207,7 @@ CREATE TABLE public.events (
   college_id uuid REFERENCES public.colleges(id),
   title text NOT NULL,
   type text NOT NULL, -- 'exam', 'interview', 'other'
+  visibility text DEFAULT 'everyone' CHECK (visibility IN ('everyone', 'private')),
   event_date date NOT NULL,
   event_time time,
   created_by uuid REFERENCES public.users(id),
@@ -216,22 +217,39 @@ CREATE TABLE public.events (
 
 ALTER TABLE public.events ENABLE ROW LEVEL SECURITY;
 
--- Everyone in the college can view events
-CREATE POLICY "Users can view college events" 
+-- Users can view:
+-- 1. Events they created (private or public)
+-- 2. Public events from their college
+CREATE POLICY "Users can view relevant events" 
   ON public.events FOR SELECT 
   TO authenticated 
-  USING (college_id = (SELECT college_id FROM users WHERE id = auth.uid()));
+  USING (
+    created_by = auth.uid() 
+    OR (
+      visibility = 'everyone' 
+      AND college_id = (SELECT college_id FROM users WHERE id = auth.uid())
+    )
+  );
 
--- Only TPOs can manage events
+-- Users can manage (INSERT/UPDATE/DELETE) their own events
+CREATE POLICY "Users can manage own events" 
+  ON public.events FOR ALL 
+  TO authenticated 
+  USING (created_by = auth.uid())
+  WITH CHECK (created_by = auth.uid());
+
+-- TPOs can also manage public college events they didn't create (optional, but requested for TPO power)
 CREATE POLICY "TPOs can manage college events" 
   ON public.events FOR ALL 
   TO authenticated 
   USING (
     college_id = (SELECT college_id FROM users WHERE id = auth.uid())
     AND (SELECT role FROM users WHERE id = auth.uid()) = 'tpo'
+    AND visibility = 'everyone'
   );
 
 CREATE INDEX IF NOT EXISTS idx_events_college_id ON public.events (college_id);
+CREATE INDEX IF NOT EXISTS idx_events_created_by ON public.events (created_by);
 
 -- Insert a default college and super admin for initial setup (Optional/Manual)
 -- INSERT INTO colleges (name) VALUES ('Default Technical College');

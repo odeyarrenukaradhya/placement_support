@@ -143,9 +143,9 @@ export default function StudentLoginPage() {
         throw new Error("Access denied");
       }
 
-      localStorage.setItem("token", res.token);
-      localStorage.setItem("user", JSON.stringify(res.user));
-      document.cookie = `token=${res.token}; path=/; max-age=86400; SameSite=Lax`;
+      sessionStorage.setItem("token", res.token);
+      sessionStorage.setItem("user", JSON.stringify(res.user));
+      document.cookie = `token=${res.token}; path=/; SameSite=Lax`;
 
       router.push("/dashboard");
     } catch (err) {

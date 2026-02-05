@@ -92,8 +92,18 @@ export default function StudentExamsPage() {
             <ChevronRight size={14} />
           </Link>
         ) : (
-          <div className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400 py-2.5">
-            {state === 'ATTENDED' ? 'Completed' : 'Closed'}
+          <div className="space-y-3">
+            <div className="text-center text-[10px] font-bold uppercase tracking-widest text-slate-400 py-1 border-t border-slate-50 pt-3">
+              {state === 'ATTENDED' ? 'Completed' : 'Closed'}
+            </div>
+            {state === 'ATTENDED' && (
+              <div className="bg-green-50 text-green-700 p-3 rounded-2xl flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest opacity-70">Mark Obtained</span>
+                <span className="text-sm font-black">
+                  {exam.score ?? 0} <span className="text-[10px] opacity-50">/ {exam.question_count}</span>
+                </span>
+              </div>
+            )}
           </div>
         )}
       </div>

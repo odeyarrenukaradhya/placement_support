@@ -64,10 +64,10 @@ export default function ProfilePage() {
       });
       setSuccess("Profile updated successfully");
       // Update local storage user if name changed
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const user = JSON.parse(sessionStorage.getItem("user") || "{}");
       if (user) {
         user.name = updated.name;
-        localStorage.setItem("user", JSON.stringify(user));
+        sessionStorage.setItem("user", JSON.stringify(user));
       }
     } catch (err) {
       setError(err.error || "Failed to update profile");

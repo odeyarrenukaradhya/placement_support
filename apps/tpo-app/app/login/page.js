@@ -120,9 +120,9 @@ export default function TPOLoginPage() {
         throw new Error("Access denied: Unauthorized role");
 
       localStorage.removeItem(LOCK_KEY);
-      localStorage.setItem("token", res.token);
-      localStorage.setItem("user", JSON.stringify(res.user));
-      document.cookie = `token=${res.token}; path=/; max-age=86400; SameSite=Lax`;
+      sessionStorage.setItem("token", res.token);
+      sessionStorage.setItem("user", JSON.stringify(res.user));
+      document.cookie = `token=${res.token}; path=/; SameSite=Lax`;
       router.push("/dashboard");
     } catch (err) {
       if (err?.retry_after_seconds) {

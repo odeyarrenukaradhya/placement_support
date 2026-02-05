@@ -13,23 +13,23 @@ export function AuthProvider({ children }) {
 
     useEffect(() => {
         // Check local storage on mount
-        const storedUser = localStorage.getItem('user');
+        const storedUser = sessionStorage.getItem('user');
         if (storedUser) {
             try {
                 setUser(JSON.parse(storedUser));
             } catch (e) {
-                console.error('Failed to parse user from local storage');
+                console.error('Failed to parse user from session storage');
             }
         }
     }, []);
 
     const login = (userData) => {
-        localStorage.setItem('user', JSON.stringify(userData));
+        sessionStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
     };
 
     const logout = () => {
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('user');
         setUser(null);
         document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
     };

@@ -3,7 +3,7 @@ const API_BASE_URL =
 
 export async function apiFetch(endpoint, options = {}) {
   const token =
-    typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    typeof window !== 'undefined' ? sessionStorage.getItem('token') : null;
 
   const headers = {
     'Content-Type': 'application/json',
@@ -22,7 +22,13 @@ export async function apiFetch(endpoint, options = {}) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw data; 
+    if (response.status === 401 && typeof window !== 'undefined') {
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('user');
+      window.location.href = '/login';
+    }
+    const errorData = (data && Object.keys(data).length > 0) ? data : { error: response.statusText || `Error ${response.status}` };
+    throw errorData;
   }
 
   return data;

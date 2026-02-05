@@ -30,11 +30,14 @@ export default function AdminDashboard() {
 
   // Initialize Data
   useEffect(() => {
-    const userData = localStorage.getItem("user");
+    const userData = sessionStorage.getItem("user");
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (userData) setUser(JSON.parse(userData));
 
     async function fetchData() {
+      const token = sessionStorage.getItem("token");
+      if (!token) return;
+
       try {
         const [statsData, examsData, violationsData] = await Promise.all([
           apiFetch('/analytics/tpo/dashboard-stats').catch(err => { console.error("Stats fetch failed:", err); return {}; }),

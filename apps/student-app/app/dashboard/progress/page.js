@@ -21,7 +21,7 @@ export default function StudentProgressPage() {
   const [year, setYear] = useState('All');
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
+    const userData = sessionStorage.getItem('user');
     if (userData) setCurrentUser(JSON.parse(userData));
 
     apiFetch('/analytics/student/rankings')

@@ -11,8 +11,8 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
+    const userData = sessionStorage.getItem('user');
+    const token = sessionStorage.getItem('token');
 
     if (!userData || !token) {
       router.replace('/login');
@@ -34,7 +34,7 @@ export default function AdminDashboard() {
   }, []);
 
   const handleLogout = () => {
-    localStorage.clear();
+    sessionStorage.clear();
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
     router.push('/login');
   };

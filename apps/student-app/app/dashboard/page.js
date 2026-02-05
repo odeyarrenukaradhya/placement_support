@@ -49,62 +49,58 @@ export default function StudentDashboard() {
   const [eventTitle, setEventTitle] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 1. Initialize Events from LocalStorage
-  useEffect(() => {
-    const savedEvents = localStorage.getItem("studentEvents");
-    if (savedEvents) {
-      setEvents(JSON.parse(savedEvents));
-    } else {
-      setEvents([
-        {
-          id: 1,
-          date: 15,
-          month: new Date().getMonth(),
-          year: new Date().getFullYear(),
-          title: "Java Exam",
-        },
-        {
-          id: 2,
-          date: 18,
-          month: new Date().getMonth(),
-          year: new Date().getFullYear(),
-          title: "DSA Test",
-        },
-      ]);
+  // 1. Fetch Events from Backend
+  const fetchEvents = async () => {
+    try {
+      const data = await apiFetch("/events");
+      // Map API data to UI format
+      const mapped = data.map((ev) => ({
+        id: ev.id,
+        date: parseInt(ev.event_date.split("-")[2]),
+        month: parseInt(ev.event_date.split("-")[1]) - 1,
+        year: parseInt(ev.event_date.split("-")[0]),
+        title: ev.title,
+        visibility: ev.visibility,
+        isOwner: ev.is_owner,
+      }));
+      setEvents(mapped);
+    } catch (err) {
+      console.error("Failed to fetch events:", err);
     }
-  }, []);
+  };
 
-  // 2. Persist Events when they change
-  useEffect(() => {
-    if (events.length > 0) {
-      localStorage.setItem("studentEvents", JSON.stringify(events));
-    }
-  }, [events]);
-
-  // 3. Fetch Data
+  // Combine and fetch all dashboard data
   useEffect(() => {
     let mounted = true;
-    async function loadDashboardData() {
+    
+    async function loadAllData() {
+      // Small delay to ensure localStorage token is available after reload
+      if (!mounted) return;
+
+      const token = sessionStorage.getItem("token");
+      if (!token) return; // DashboardLayout will handle the redirect
+
       try {
         setLoading(true);
-        const [statsData, scores] = await Promise.all([
-          apiFetch("/analytics/student/dashboard-stats"),
-          apiFetch("/analytics/student/my-scores"),
+        // Execute all API calls in parallel
+        const [statsData, scoresData, eventsData] = await Promise.all([
+          apiFetch("/analytics/student/dashboard-stats").catch(err => { console.error("Stats fetch failed:", err); return {}; }),
+          apiFetch("/analytics/student/my-scores").catch(err => { console.error("Scores fetch failed:", err); return []; }),
+          apiFetch("/events").catch(err => { console.error("Events fetch failed:", err); return []; })
         ]);
 
         if (!mounted) return;
 
+        // 1. Process Stats
         const upcoming = statsData?.upcoming_exams ?? 0;
         const completed = statsData?.completed_attempts ?? 0;
 
-        // Calculate individual accuracies first
-        const testAccuracies = (scores || []).map(s => {
+        const testAccuracies = (scoresData || []).map(s => {
           const total = Number(s.total_questions) || 0;
           const score = Number(s.score) || 0;
           return total > 0 ? (score / total) * 100 : 0;
         });
 
-        // Calculate average accuracy
         const avgAccuracy = testAccuracies.length 
           ? Math.round(testAccuracies.reduce((a, b) => a + b, 0) / testAccuracies.length)
           : 0;
@@ -116,7 +112,8 @@ export default function StudentDashboard() {
           averageScore: avgAccuracy,
         });
 
-        const activity = (scores || []).map((s, i) => {
+        // 2. Process Course Activity
+        const activity = (scoresData || []).map((s, i) => {
           const totalQuestions = Number(s.total_questions) || 0;
           const correctAnswers = Number(s.score) || 0;
           const accuracy = totalQuestions > 0 
@@ -131,8 +128,20 @@ export default function StudentDashboard() {
             date: s.submitted_at ? new Date(s.submitted_at).toLocaleDateString() : 'N/A'
           };
         });
-
         setCourseActivity(activity);
+
+        // 3. Process Events
+        const mappedEvents = (eventsData || []).map((ev) => ({
+          id: ev.id,
+          date: parseInt(ev.event_date.split("-")[2]),
+          month: parseInt(ev.event_date.split("-")[1]) - 1,
+          year: parseInt(ev.event_date.split("-")[0]),
+          title: ev.title,
+          visibility: ev.visibility,
+          isOwner: ev.is_owner,
+        }));
+        setEvents(mappedEvents);
+
       } catch (err) {
         console.error("Dashboard data load failed:", err);
       } finally {
@@ -140,7 +149,7 @@ export default function StudentDashboard() {
       }
     }
 
-    loadDashboardData();
+    loadAllData();
     return () => {
       mounted = false;
     };
@@ -314,21 +323,35 @@ export default function StudentDashboard() {
                     .map((event) => (
                       <div
                         key={event.id}
-                        className="flex items-center justify-between bg-blue-50/50 p-4 rounded-2xl border-l-4 border-blue-600 group"
+                        className={`flex items-center justify-between p-4 rounded-2xl border-l-4 group ${
+                          event.visibility === 'everyone' 
+                            ? 'bg-blue-50/50 border-blue-600' 
+                            : 'bg-indigo-50/50 border-indigo-600'
+                        }`}
                       >
-                        <span className="text-sm font-bold text-slate-700">
-                          {event.title}
-                        </span>
-                        <button
-                          onClick={() => {
-                            setEvents(
-                              events.filter((e) => e.id !== event.id),
-                            );
-                          }}
-                          className="opacity-0 group-hover:opacity-100 text-red-500 hover:text-red-700 transition-all font-bold"
-                        >
-                          Delete
-                        </button>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-bold text-slate-700">
+                            {event.title}
+                          </span>
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            {event.visibility === 'everyone' ? 'TPO Event' : 'Personal'}
+                          </span>
+                        </div>
+                        {event.isOwner && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await apiFetch(`/events/${event.id}`, { method: 'DELETE' });
+                                setEvents(events.filter((e) => e.id !== event.id));
+                              } catch (err) {
+                                console.error("Delete failed:", err);
+                              }
+                            }}
+                            className="bg-red-50 text-red-500 hover:bg-red-500 hover:text-white p-2 rounded-xl transition-all text-xs font-black uppercase tracking-widest"
+                          >
+                            Delete
+                          </button>
+                        )}
                       </div>
                     ))
                 )}
@@ -349,19 +372,36 @@ export default function StudentDashboard() {
                   className="flex-1 text-slate-900 bg-slate-50 border-none rounded-2xl px-5 py-3 text-sm focus:ring-2 focus:ring-blue-600 transition-all outline-none"
                 />
                 <button
-                  onClick={() => {
+                  onClick={async () => {
                     if (eventTitle.trim()) {
-                      setEvents([
-                        ...events,
-                        {
-                          id: Date.now(),
-                          date: selectedDate,
-                          month: currentDate.getMonth(),
-                          year: currentDate.getFullYear(),
-                          title: eventTitle,
-                        },
-                      ]);
-                      setEventTitle("");
+                      try {
+                        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate).padStart(2, '0')}`;
+                        const saved = await apiFetch("/events", {
+                          method: "POST",
+                          body: JSON.stringify({
+                            title: eventTitle,
+                            type: 'other',
+                            date: dateStr,
+                            visibility: 'private',
+                          }),
+                        });
+
+                        setEvents([
+                          ...events,
+                          {
+                            id: saved.id,
+                            date: selectedDate,
+                            month: currentDate.getMonth(),
+                            year: currentDate.getFullYear(),
+                            title: eventTitle,
+                            visibility: 'private',
+                            isOwner: true,
+                          },
+                        ]);
+                        setEventTitle("");
+                      } catch (err) {
+                        console.error("Save failed:", err);
+                      }
                     }
                   }}
                   className="bg-blue-600 text-white px-6 rounded-2xl font-bold text-sm hover:shadow-lg hover:shadow-blue-200 transition-all active:scale-95"
@@ -476,7 +516,9 @@ function EventCalendar({
               day === null
                 ? "opacity-0 cursor-default"
                 : isEventDay(day)
-                  ? "bg-blue-600 text-white shadow-xl shadow-blue-200 ring-4 ring-blue-50"
+                  ? events.some(e => e.date === day && e.month === currentDate.getMonth() && e.visibility === 'everyone')
+                    ? "bg-blue-600 text-white shadow-xl shadow-blue-200 ring-4 ring-blue-50"
+                    : "bg-indigo-600 text-white shadow-xl shadow-indigo-200 ring-4 ring-indigo-50"
                   : isToday(day)
                     ? "bg-blue-50 text-blue-700 ring-2 ring-blue-200"
                     : "bg-slate-50 text-slate-600 hover:bg-white hover:shadow-lg hover:shadow-slate-100 hover:text-blue-600"

@@ -34,12 +34,20 @@ export function DashboardLayout({ children }) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   useEffect(() => {
-    const userData = localStorage.getItem("user");
-    if (userData) setUser(JSON.parse(userData));
-  }, []);
+    const token = sessionStorage.getItem("token");
+    const userData = sessionStorage.getItem("user");
+    
+    if (!token || !userData) {
+      router.push("/login");
+      return;
+    }
+    
+    setUser(JSON.parse(userData));
+  }, [router]);
 
   const handleLogout = () => {
-    localStorage.clear();
+    sessionStorage.removeItem("token");
+    sessionStorage.removeItem("user");
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
     router.push("/login");
   };

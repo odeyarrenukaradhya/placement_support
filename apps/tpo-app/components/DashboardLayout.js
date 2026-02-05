@@ -45,21 +45,25 @@ export function DashboardLayout({ children }) {
     ];
 
     useEffect(() => {
-        // Attempt to get user data if available, otherwise default
-        const userData = localStorage.getItem("user");
-        if (userData) {
-            try {
-                setUser(JSON.parse(userData));
-            } catch (e) {
-                setUser({ name: "TPO Officer" });
-            }
-        } else {
-            setUser({ name: "TPO Officer" });
+        const token = sessionStorage.getItem("token");
+        const userData = sessionStorage.getItem("user");
+        
+        if (!token || !userData) {
+            router.push("/login");
+            return;
         }
-    }, []);
+
+        try {
+            setUser(JSON.parse(userData));
+        } catch (e) {
+            console.error('Failed to parse user from session storage');
+            router.push("/login");
+        }
+    }, [router]);
 
     const handleLogout = () => {
-        localStorage.clear();
+        sessionStorage.removeItem("token");
+        sessionStorage.removeItem("user");
         document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
         router.push("/login");
     };

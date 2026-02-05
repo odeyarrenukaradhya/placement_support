@@ -12,14 +12,21 @@ export default function EventCalendar() {
     const [newEventTitle, setNewEventTitle] = useState("");
     const [newEventType, setNewEventType] = useState("exam");
     const [newEventTime, setNewEventTime] = useState("09:00");
+    const [newEventVisibility, setNewEventVisibility] = useState("everyone");
     const [notifiedEvents, setNotifiedEvents] = useState(new Set());
     const [notification, setNotification] = useState(null);
     const [mounted, setMounted] = useState(false);
     // Handle Hydration - Set initial data only on client
     useEffect(() => {
         setMounted(true);
-        fetchEvents();
         setCurrentDate(new Date());
+
+        // Small delay to ensure localStorage token is available after reload
+        const timer = setTimeout(() => {
+            fetchEvents();
+        }, 100);
+
+        return () => clearTimeout(timer);
     }, []);
 
     const fetchEvents = async () => {
@@ -31,7 +38,9 @@ export default function EventCalendar() {
                 date: ev.event_date,
                 title: ev.title,
                 type: ev.type,
-                time: ev.event_time
+                visibility: ev.visibility,
+                time: ev.event_time,
+                isOwner: ev.is_owner
             }));
             setEvents(mapped);
         } catch (err) {
@@ -141,7 +150,8 @@ export default function EventCalendar() {
                 title: newEventTitle,
                 type: newEventType,
                 date: selectedDate,
-                time: newEventTime
+                time: newEventTime,
+                visibility: newEventVisibility
             };
 
             const saved = await apiFetch('/events', {
@@ -154,7 +164,9 @@ export default function EventCalendar() {
                 date: saved.event_date,
                 title: saved.title,
                 type: saved.type,
-                time: saved.event_time
+                visibility: saved.visibility,
+                time: saved.event_time,
+                isOwner: true
             }]);
 
             let timeStr = "";
@@ -207,7 +219,9 @@ export default function EventCalendar() {
                     onClick={() => handleDateClick(i)}
                     className={`h-10 w-10 flex flex-col items-center justify-center rounded-xl text-sm font-bold cursor-pointer transition-all relative group
             ${isToday ? "bg-blue-600 text-white shadow-md shadow-blue-200" : ""}
-            ${hasEvents && !isToday ? "bg-blue-500 text-white shadow-md" : ""}
+            ${hasEvents && !isToday ? 
+                (dayEvents.some(e => e.visibility === 'everyone') ? "bg-blue-500 text-white shadow-md" : "bg-indigo-500 text-white shadow-md") 
+                : ""}
             ${!isToday && !hasEvents ? "text-slate-600 hover:bg-slate-100" : ""}
           `}
                 >
@@ -285,39 +299,46 @@ export default function EventCalendar() {
                             </div>
                         ) : (
                             selectedDateEvents.map((ev, i) => (
-                                <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <div className="flex items-center gap-3">
-                                        <div className="flex flex-col">
-                                            <span className="text-sm font-bold text-slate-700">{ev.title}</span>
-                                            {ev.time && <span className="text-[10px] font-bold text-slate-400">
-                                                {/* Safe Time Render */}
-                                                {(() => {
-                                                    try {
-                                                        return new Date(`2000-01-01T${ev.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
-                                                    } catch (e) {
-                                                        return ev.time;
-                                                    }
-                                                })()}
-                                            </span>}
+                                    <div className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-bold text-slate-700">{ev.title}</span>
+                                                <div className="flex items-center gap-2">
+                                                    {ev.time && <span className="text-[10px] font-bold text-slate-400">
+                                                        {/* Safe Time Render */}
+                                                        {(() => {
+                                                            try {
+                                                                return new Date(`2000-01-01T${ev.time}`).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true });
+                                                            } catch (e) {
+                                                                return ev.time;
+                                                            }
+                                                        })()}
+                                                    </span>}
+                                                    <span className={`text-[8px] uppercase font-black px-1.5 py-0.5 rounded ${ev.visibility === 'everyone' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                                                        {ev.visibility === 'everyone' ? 'Everyone' : 'Private'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <span className="text-[10px] uppercase font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded self-start">{ev.type}</span>
                                         </div>
-                                        <span className="text-[10px] uppercase font-bold text-blue-500 bg-blue-50 px-2 py-0.5 rounded self-start">{ev.type}</span>
+                                        {ev.isOwner && (
+                                            <button
+                                                onClick={async () => {
+                                                    try {
+                                                        await apiFetch(`/events/${ev.id}`, { method: 'DELETE' });
+                                                        setEvents(events.filter(e => e.id !== ev.id));
+                                                        showNotification("Event Removed");
+                                                    } catch (err) {
+                                                        console.error("Failed to delete event", err);
+                                                        showNotification("Failed to remove event");
+                                                    }
+                                                }}
+                                                className="text-xs text-red-400 hover:text-red-600 px-2"
+                                            >
+                                                Remove
+                                            </button>
+                                        )}
                                     </div>
-                                    <button
-                                        onClick={async () => {
-                                            try {
-                                                await apiFetch(`/events/${ev.id}`, { method: 'DELETE' });
-                                                setEvents(events.filter(e => e.id !== ev.id));
-                                                showNotification("Event Removed");
-                                            } catch (err) {
-                                                console.error("Failed to delete event", err);
-                                                showNotification("Failed to remove event");
-                                            }
-                                        }}
-                                        className="text-xs text-red-400 hover:text-red-600 px-2"
-                                    >
-                                        Remove
-                                    </button>
-                                </div>
                             ))
                         )}
                     </div>
@@ -353,6 +374,21 @@ export default function EventCalendar() {
                                         <option value="exam">Exam</option>
                                         <option value="interview">Interview</option>
                                         <option value="other">Other</option>
+                                    </select>
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Visibility</label>
+                                    <select
+                                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-blue-500 transition-all cursor-pointer"
+                                        value={newEventVisibility}
+                                        onChange={(e) => {
+                                            // Since we don't have a single state for visibility yet, let's use a temporary hack or just add it to the form
+                                            // Actually let's just use a new state variable 'newEventVisibility'
+                                            setNewEventVisibility(e.target.value);
+                                        }}
+                                    >
+                                        <option value="everyone">Everyone</option>
+                                        <option value="private">Private</option>
                                     </select>
                                 </div>
                             </div>
