@@ -70,9 +70,9 @@ export default function AdminDashboard() {
   }, []);
 
   return (
-    <div className="flex-1 overflow-hidden p-3 pt-0 lg:p-5 lg:pt-0">
+    <div className="flex-1 p-3 pt-4 lg:p-5 lg:pt-0">
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-12 relative z-10">
         <StatCard title="Total Quizzes" value={stats.totalQuizzes} />
         <StatCard title="Total Attempts" value={stats.totalAttempts} />
         <StatCard title="Active Students" value={stats.totalStudents} />
@@ -196,7 +196,7 @@ export default function AdminDashboard() {
 function StatCard({ title, value }) {
   return (
     <ParticleCard glowColor="59, 130, 246" particleCount={8}>
-      <div className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border-2 border-blue-100 hover:border-blue-500 hover:-translate-y-1 group">
+      <div className="bg-white p-5 rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 border-2 border-blue-100 hover:border-blue-500 hover:-translate-y-2 group relative hover:z-50">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 group-hover:text-blue-500 transition-colors">
           {title}
         </p>

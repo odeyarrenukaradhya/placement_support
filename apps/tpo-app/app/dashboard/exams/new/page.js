@@ -3,11 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
+import Modal from '@/components/Modal';
 
 export default function NewExamPage() {
   const [title, setTitle] = useState('');
   const [code, setCode] = useState('');
   const [duration, setDuration] = useState(30);
+  const [errorModal, setErrorModal] = useState({ isOpen: false, title: '', message: '' });
   const [questions, setQuestions] = useState([
     { question: '', options: ['', '', '', ''], correct_answer: '' }
   ]);
@@ -32,6 +34,18 @@ export default function NewExamPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validation: Check if every question has a correct answer selected
+    const missingAnswers = questions.some(q => !q.correct_answer);
+    if (missingAnswers) {
+      setErrorModal({
+        isOpen: true,
+        title: 'Validation Error',
+        message: "Some questions do not have a correct answer selected. Please select a correct answer for each question (shown in red if missing)."
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -47,7 +61,11 @@ export default function NewExamPage() {
 
       router.push('/dashboard/exams');
     } catch (err) {
-      alert(err.message || 'Failed to create exam');
+      setErrorModal({
+        isOpen: true,
+        title: 'Creation Failed',
+        message: err.message || 'Failed to create exam'
+      });
     } finally {
       setLoading(false);
     }
@@ -154,7 +172,12 @@ export default function NewExamPage() {
                 ))}
               </div>
               <div className="pt-4">
-                <label className="block text-sm font-bold text-slate-600 mb-2">Select Correct Answer</label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-bold text-slate-600">Select Correct Answer</label>
+                  {!q.correct_answer && (
+                    <span className="text-red-500 text-xs font-bold animate-pulse">Required: Please select one option below</span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {q.options.map((opt, oIndex) => (
                     opt && (
@@ -191,6 +214,17 @@ export default function NewExamPage() {
           ) : 'Publish Exam Now'}
         </button>
       </form>
+
+      <Modal
+        isOpen={errorModal.isOpen}
+        onClose={() => setErrorModal({ ...errorModal, isOpen: false })}
+        onConfirm={() => setErrorModal({ ...errorModal, isOpen: false })}
+        title={errorModal.title}
+        message={errorModal.message}
+        type="danger"
+        confirmText="Understood"
+        showCancel={false}
+      />
     </div>
   );
 }

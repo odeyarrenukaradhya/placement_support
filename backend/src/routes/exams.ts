@@ -157,4 +157,35 @@ router.get('/:examId/integrity', authenticateJWT, authorizeRoles('tpo', 'admin')
     }
 });
 
+// Delete an exam (TPO/Admin)
+router.delete('/:examId', authenticateJWT, authorizeRoles('tpo', 'admin'), async (req: AuthRequest, res: any) => {
+    const { examId } = req.params;
+    try {
+        // Verify exam belongs to college
+        if (req.user?.role !== 'admin') {
+            const check = await query('SELECT id FROM exams WHERE id = $1 AND college_id = $2', [examId, req.user?.college_id]);
+            if (check.rows.length === 0) return res.status(403).json({ error: 'Unauthorized or Exam not found' });
+        }
+
+        // Deletion order to satisfy foreign key constraints:
+        // 1. integrity_logs (referencing attempts)
+        // 2. attempts (referencing exams)
+        // 3. applications (referencing exams)
+        // 4. questions (referencing exams) - though questions has ON DELETE CASCADE in init_db.sql, let's be explicit if needed, but it should be fine.
+        // 5. exams
+
+        await query('DELETE FROM integrity_logs WHERE attempt_id IN (SELECT id FROM attempts WHERE exam_id = $1)', [examId]);
+        await query('DELETE FROM attempts WHERE exam_id = $1', [examId]);
+        await query('DELETE FROM applications WHERE exam_id = $1', [examId]);
+        // questions has ON DELETE CASCADE in schema, but we can be explicit
+        await query('DELETE FROM questions WHERE exam_id = $1', [examId]);
+        await query('DELETE FROM exams WHERE id = $1', [examId]);
+
+        res.json({ message: 'Exam and related data deleted successfully' });
+    } catch (err: any) {
+        console.error('Delete Exam Error:', err);
+        res.status(500).json({ error: 'Failed to delete exam', details: err.message });
+    }
+});
+
 export default router;

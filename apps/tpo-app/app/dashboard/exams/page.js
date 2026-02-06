@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { apiFetch } from '@/lib/api';
 import Link from 'next/link';
+import Modal from '@/components/Modal';
 
 export default function ExamsPage() {
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, examId: null });
 
   useEffect(() => {
     apiFetch('/exams')
@@ -17,10 +19,30 @@ export default function ExamsPage() {
       .finally(() => setLoading(false));
   }, []);
 
+  const handleDeleteClick = (examId) => {
+    setDeleteModal({ isOpen: true, examId });
+  };
+
+  const confirmDelete = async () => {
+    const examId = deleteModal.examId;
+    if (!examId) return;
+
+    try {
+      await apiFetch(`/exams/${examId}`, {
+        method: 'DELETE'
+      });
+      setExams(exams.filter(e => e.id !== examId));
+      setDeleteModal({ isOpen: false, examId: null });
+    } catch (err) {
+      console.error("Failed to delete exam:", err);
+      alert(err.message || 'Failed to delete exam');
+    }
+  };
+
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
-        <h2 className="text-2xl font-bold">Manage Placement Exams</h2>
+        <h2 className="text-2xl font-bold text-black">Manage Placement Exams</h2>
 
       </div>
 
@@ -50,7 +72,12 @@ export default function ExamsPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                     <Link href={`/dashboard/exams/${exam.id}/results`} className="text-blue-600 hover:text-blue-800 font-bold mr-4">Results</Link>
                     <Link href={`/dashboard/exams/${exam.id}/integrity`} className="text-amber-600 hover:text-amber-800 font-bold mr-4">Integrity Report</Link>
-                    <button className="text-red-500 hover:text-red-700 font-bold">Delete</button>
+                    <button 
+                      onClick={() => handleDeleteClick(exam.id)}
+                      className="text-red-500 hover:text-red-700 font-bold"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -63,6 +90,16 @@ export default function ExamsPage() {
           </table>
         </div>
       )}
+
+      <Modal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, examId: null })}
+        onConfirm={confirmDelete}
+        title="Delete Exam"
+        message="Are you sure you want to delete this exam? This action will permanently remove all student attempts, results, and associated data. This cannot be undone."
+        type="danger"
+        confirmText="Permanently Delete"
+      />
     </div>
   );
 }

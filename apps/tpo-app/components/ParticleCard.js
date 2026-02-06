@@ -77,7 +77,7 @@ export default function ParticleCard({
     }, [spawnParticles]);
 
     return (
-        <div ref={ref} className={`relative overflow-hidden ${className}`}>
+        <div ref={ref} className={`relative ${className}`}>
             {children}
         </div>
     );

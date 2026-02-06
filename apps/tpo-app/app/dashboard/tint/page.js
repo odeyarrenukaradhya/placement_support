@@ -42,7 +42,7 @@ export default function TPOTintPage() {
 
       {showUpload && (
         <form onSubmit={handleUpload} className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8 space-y-4 max-w-xl">
-          <h3 className="font-semibold text-lg">New Material Details</h3>
+          <h3 className="font-semibold text-lg text-black">New Material Details</h3>
           <div>
             <label className="block text-sm font-medium text-gray-700">Title</label>
             <input 

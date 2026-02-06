@@ -214,9 +214,9 @@ export function DashboardLayout({ children }) {
             )}
 
             {/* Main Content Area */}
-            <main className="flex-1 overflow-y-auto p-4 lg:p-8 pt-20 lg:pt-8 bg-[#f8fbff]">
+            <main className="flex-1 overflow-y-auto p-4 lg:p-8 pt-20 lg:pt-8 pb-20 bg-[#f8fbff]">
                 {/* Desktop Top Bar (Hidden on Mobile) */}
-                <div className="hidden lg:flex justify-between items-center mb-8">
+                <div className="hidden lg:flex justify-between items-center mb-16 relative z-0">
                     <h1 className="text-2xl font-black text-slate-900 tracking-tight">
                         <TextType
                             text={`Welcome back, ${user?.name || "Officer"}`}
