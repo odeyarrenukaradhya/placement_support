@@ -21,7 +21,7 @@ export default function ExamIntegrityPage() {
 
   return (
     <div className="p-8">
-      <h2 className="text-2xl font-bold mb-8">Exam Integrity Monitor</h2>
+      <h2 className="text-2xl font-bold mb-8 text-black">Exam Integrity Monitor</h2>
 
       {loading ? (
         <p className="text-slate-500 animate-pulse">Loading compliance data...</p>

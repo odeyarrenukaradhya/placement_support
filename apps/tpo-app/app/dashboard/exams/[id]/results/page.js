@@ -33,7 +33,7 @@ export default function ExamResultsPage() {
 
   return (
     <div className="p-8">
-      <h2 className="text-2xl font-bold mb-8">Exam Participation & Results</h2>
+      <h2 className="text-2xl font-bold mb-8 text-black">Exam Participation & Results</h2>
 
       {loading ? <p>Calculating statistics...</p> : (
         <div className="space-y-8">

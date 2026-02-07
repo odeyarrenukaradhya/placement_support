@@ -100,7 +100,7 @@ router.post('/:examId/questions', authenticateJWT, authorizeRoles('tpo'), async 
 // Submit exam attempt (Student only)
 router.post('/:examId/attempt', authenticateJWT, authorizeRoles('student'), async (req: AuthRequest, res: any) => {
     const { examId } = req.params;
-    const { answers, attempt_id } = req.body; // Map of { questionId: answer }
+    const { answers, attempt_id, is_termination, termination_reason } = req.body; // Map of { questionId: answer }
 
     if (!attempt_id) {
         return res.status(400).json({ error: 'attempt_id required' });
@@ -110,7 +110,7 @@ router.post('/:examId/attempt', authenticateJWT, authorizeRoles('student'), asyn
         // Fetch correct answers
         const questions = await query('SELECT id, correct_answer FROM questions WHERE exam_id = $1', [examId]);
         let score = 0;
-        questions.rows.forEach(q => {
+        questions.rows.forEach((q: any) => {
             if (answers[q.id] === q.correct_answer) {
                 score++;
             }
@@ -126,8 +126,13 @@ router.post('/:examId/attempt', authenticateJWT, authorizeRoles('student'), asyn
             return res.status(400).json({ error: 'Attempt already submitted or invalid' });
         }
 
+        if (is_termination) {
+            console.log(`[Integrity] Attempt ${attempt_id} terminated. Reason: ${termination_reason}`);
+        }
+
         res.status(200).json(attempt.rows[0]);
     } catch (err) {
+        console.error('Submission Error:', err);
         res.status(500).json({ error: 'Failed to submit attempt' });
     }
 });

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
-import { Clock, Shield, Send, ChevronRight, CheckCircle2, ChevronLeft, Layout, MousePointer2 } from 'lucide-react';
+import { Clock, Shield, Send, ChevronRight, CheckCircle2, ChevronLeft, Layout, MousePointer2, AlertTriangle, XCircle, Info } from 'lucide-react';
 import gsap from 'gsap';
 
 export default function ExamAttemptPage() {
@@ -17,11 +17,16 @@ export default function ExamAttemptPage() {
   const [attemptId, setAttemptId] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeQuestion, setActiveQuestion] = useState(0);
+  const [hasStarted, setHasStarted] = useState(false);
+  const [tabViolations, setTabViolations] = useState(0);
+  const [copyViolations, setCopyViolations] = useState(0);
+  const [isTerminated, setIsTerminated] = useState(false);
   const router = useRouter();
   
   const mainContentRef = useRef(null);
   const qCardRef = useRef(null);
   const questionStartTime = useRef(Date.now());
+  const terminationRef = useRef(false);
 
   // Logging utility
   const logEvent = useCallback((type, metadata = {}) => {
@@ -113,26 +118,63 @@ export default function ExamAttemptPage() {
     // Use a small delay for blur to avoid false positives on quick interactions
     let blurTimeout;
     const handleBlur = () => {
+      if (!hasStarted || isTerminated) return;
       blurTimeout = setTimeout(() => {
         logEvent('window_blur', { timestamp: new Date().toISOString() });
+        setTabViolations(prev => {
+          const next = prev + 1;
+          if (next >= 5) triggerTermination('Too many tab switches/window blurs');
+          return next;
+        });
       }, 500); 
     };
     const handleFocus = () => clearTimeout(blurTimeout);
 
     const handleVisibilityChange = () => {
-      if (document.hidden) {
+      if (document.hidden && hasStarted && !isTerminated) {
         logEvent('tab_hidden', { timestamp: new Date().toISOString() });
+        setTabViolations(prev => {
+          const next = prev + 1;
+          if (next >= 5) triggerTermination('Excessive tab switching detected');
+          return next;
+        });
       }
     };
 
     const handleContextMenu = (e) => e.preventDefault();
-    const handleCopy = (e) => e.preventDefault();
-    const handlePaste = (e) => e.preventDefault();
+    const handleCopy = (e) => {
+      e.preventDefault();
+      if (!hasStarted || isTerminated) return;
+      setCopyViolations(prev => {
+        const next = prev + 1;
+        if (next >= 5) triggerTermination('Excessive copy attempts');
+        return next;
+      });
+      logEvent('forbidden_copy', { count: copyViolations + 1 });
+    };
+    const handlePaste = (e) => {
+      e.preventDefault();
+      if (!hasStarted || isTerminated) return;
+      setCopyViolations(prev => {
+        const next = prev + 1;
+        if (next >= 5) triggerTermination('Excessive paste attempts');
+        return next;
+      });
+      logEvent('forbidden_paste', { count: copyViolations + 1 });
+    };
 
     const handleKeyDown = (e) => {
+      if (!hasStarted || isTerminated) return;
       if ((e.ctrlKey && (e.key === 'c' || e.key === 'v' || e.key === 'p' || e.key === 'r')) || e.key === 'F5') {
         e.preventDefault();
         logEvent('forbidden_key_press', { key: e.key, timestamp: new Date().toISOString() });
+        if (e.key === 'c' || e.key === 'v') {
+          setCopyViolations(prev => {
+            const next = prev + 1;
+            if (next >= 5) triggerTermination('Illegal shortcut usage');
+            return next;
+          });
+        }
       }
     };
 
@@ -154,7 +196,16 @@ export default function ExamAttemptPage() {
       window.removeEventListener('keydown', handleKeyDown);
       clearTimeout(blurTimeout);
     };
-  }, [attemptId, logEvent]);
+  }, [attemptId, logEvent, hasStarted, isTerminated, copyViolations]);
+
+  const triggerTermination = (reason) => {
+    if (terminationRef.current) return;
+    terminationRef.current = true;
+    
+    setIsTerminated(true);
+    logEvent('automatic_termination', { reason, timestamp: new Date().toISOString() });
+    handleSubmit(true, reason);
+  };
 
   const handleAnswer = (questionId, option) => {
     const now = Date.now();
@@ -193,19 +244,29 @@ export default function ExamAttemptPage() {
     });
   };
 
-  const handleSubmit = async (auto = false) => {
+  const handleSubmit = async (auto = false, terminationReason = null) => {
     if (!attemptId || isSubmitting) return;
+    if (!auto && !confirm('Are you sure you want to submit?')) return;
+    
     setIsSubmitting(true);
     try {
-      const result = await apiFetch(`/exams/${examId}/attempt`, {
+      await apiFetch(`/exams/${examId}/attempt`, {
         method: 'POST',
-        body: JSON.stringify({ answers, attempt_id: attemptId }),
+        body: JSON.stringify({ 
+          answers, 
+          attempt_id: attemptId,
+          is_termination: !!terminationReason,
+          termination_reason: terminationReason
+        }),
       });
-      // Redirect silently to dashboard
-      router.push('/dashboard');
+      
+      if (!terminationReason) {
+        router.push('/dashboard');
+      }
     } catch (err) {
-      alert('Error: ' + err.message);
-      setIsSubmitting(false);
+      console.error('Submission technical error:', err);
+      // Only reset isSubmitting if it wasn't a termination (which is permanent)
+      if (!terminationReason) setIsSubmitting(false);
     }
   };
 
@@ -382,6 +443,61 @@ export default function ExamAttemptPage() {
          >
          </button>
       </div>
+      {/* Violation Termination Overlay */}
+      {isTerminated && (
+        <div className="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[200] flex items-center justify-center p-6">
+          <div className="max-w-md w-full bg-white rounded-[3rem] p-10 text-center shadow-2xl animate-in zoom-in duration-500">
+             <div className="w-24 h-24 bg-red-50 text-red-600 rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-lg shadow-red-100">
+                <XCircle size={48} />
+             </div>
+             <h2 className="text-3xl font-black text-slate-950 mb-4">Exam Terminated</h2>
+             <p className="text-slate-500 font-medium leading-relaxed mb-10">
+               Your session has been automatically submitted due to multiple integrity violations. The administration has been notified of this event.
+             </p>
+             <button 
+                onClick={() => router.push('/dashboard')}
+                className="w-full bg-slate-950 text-white py-5 rounded-2xl font-black uppercase tracking-widest hover:bg-red-600 transition-colors"
+             >
+                Return to Dashboard
+             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Starting Disclaimer Portal */}
+      {!hasStarted && !loading && (
+        <div className="fixed inset-0 bg-white z-[150] flex items-center justify-center p-6">
+           <div className="max-w-2xl w-full">
+              <div className="mb-12">
+                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-8">
+                  <Shield size={32} />
+                </div>
+                <h2 className="text-5xl font-black text-slate-950 tracking-tight mb-6">Integrity Protocol</h2>
+                <div className="space-y-6">
+                   <div className="flex gap-4 p-6 bg-slate-50 rounded-3xl border border-slate-100">
+                      <div className="shrink-0 text-blue-600"><Info size={24} /></div>
+                      <p className="text-slate-600 font-medium leading-relaxed">
+                        This examination is strictly monitored. Any attempt to <span className="text-slate-950 font-bold">switch tabs</span> or <span className="text-slate-950 font-bold">copy/paste</span> content will be logged.
+                      </p>
+                   </div>
+                   <div className="flex gap-4 p-6 bg-red-50/50 rounded-3xl border border-red-100">
+                      <div className="shrink-0 text-red-600"><AlertTriangle size={24} /></div>
+                      <p className="text-red-900 font-bold leading-relaxed">
+                        Threshold Limit: 5 Violations. Exceeding this limit will result in immediate termination and automatic submission of your current progress.
+                      </p>
+                   </div>
+                </div>
+              </div>
+              
+              <button 
+                onClick={() => setHasStarted(true)}
+                className="w-full bg-blue-600 text-white py-6 rounded-[2rem] text-xl font-black uppercase tracking-widest shadow-2xl shadow-blue-200 hover:bg-blue-700 transition-all hover:scale-[1.02] active:scale-[0.98]"
+              >
+                Accept & Start Exam
+              </button>
+           </div>
+        </div>
+      )}
     </div>
   );
 }
