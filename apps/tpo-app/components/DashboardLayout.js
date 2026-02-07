@@ -76,29 +76,6 @@ export function DashboardLayout({ children }) {
         { href: "/dashboard/circulars", label: "Circulars", icon: <MessageSquare size={18} /> },
     ];
 
-    const NotificationsPanel = () => (
-        <div className="absolute top-full right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-slate-100 p-4 z-50 animate-in slide-in-from-top-2 fade-in duration-200">
-            <div className="flex justify-between items-center mb-4">
-                <h3 className="font-bold text-slate-800">Notifications</h3>
-                <button onClick={() => setShowNotifications(false)}><X size={16} className="text-slate-400 hover:text-slate-600" /></button>
-            </div>
-            <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-                {notifications.map((n) => (
-                    <div key={n.id} className="p-3 bg-slate-50 rounded-xl hover:bg-blue-50 transition cursor-pointer flex gap-3 items-start">
-                        <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${n.type === 'alert' ? 'bg-red-500' : n.type === 'success' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
-                        <div>
-                            <p className="text-xs font-bold text-slate-700 leading-tight mb-1">{n.title}</p>
-                            <p className="text-[10px] text-slate-400 font-medium">{n.time}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <div className="mt-3 pt-2 text-center border-t border-slate-100">
-                <button className="text-[10px] font-bold text-blue-600 uppercase tracking-widest hover:text-blue-700">Mark all read</button>
-            </div>
-        </div>
-    );
-
     return (
         <div className="h-screen bg-[#e8edff] flex overflow-hidden font-sans">
             {/* Sidebar (Desktop Only) */}

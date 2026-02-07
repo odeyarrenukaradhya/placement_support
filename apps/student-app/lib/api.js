@@ -10,6 +10,8 @@ export async function apiFetch(endpoint, options = {}) {
     ...options.headers
   };
 
+  const skipRedirect = options.skipRedirect || endpoint.startsWith('/auth');
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -22,7 +24,7 @@ export async function apiFetch(endpoint, options = {}) {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    if (response.status === 401 && typeof window !== 'undefined') {
+    if (response.status === 401 && !skipRedirect && typeof window !== 'undefined') {
       sessionStorage.removeItem('token');
       sessionStorage.removeItem('user');
       window.location.href = '/login';

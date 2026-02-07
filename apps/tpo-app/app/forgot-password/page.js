@@ -69,17 +69,23 @@ export default function ForgotPasswordPage() {
     }
 
     setError(
-      `Too many attempts. Please wait ${Math.floor(lockSeconds / 60)}:${String(
+      `Too many OTP attempts. Try again in ${Math.floor(lockSeconds / 60)}:${String(
         lockSeconds % 60,
       ).padStart(2, "0")}`,
     );
 
     const timer = setInterval(() => {
-      setLockSeconds((s) => s - 1);
+      setLockSeconds((s) => (s > 0 ? s - 1 : 0));
     }, 1000);
 
     return () => clearInterval(timer);
   }, [lockSeconds]);
+
+  /* ✅ DERIVED ERROR */
+  const displayError =
+    lockSeconds !== null
+      ? `Too many OTP attempts. Try again in ${Math.floor(lockSeconds / 60)}:${String(lockSeconds % 60).padStart(2, "0")}`
+      : error;
 
   /* STEP 1: REQUEST OTP */
   const handleRequestOtp = async (e) => {
@@ -222,10 +228,12 @@ export default function ForgotPasswordPage() {
             </p>
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-red-600 shrink-0"></div>
-              {error}
+          {displayError && (
+            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-100 text-xs text-red-600 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+              <div
+                className={`h-2 w-2 rounded-full bg-red-600 shrink-0 ${lockSeconds !== null ? "animate-pulse" : ""}`}
+              ></div>
+              <span className="font-semibold">{displayError}</span>
             </div>
           )}
 
@@ -258,8 +266,9 @@ export default function ForgotPasswordPage() {
                 </div>
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full flex justify-center items-center gap-3 py-3.5 border border-transparent text-sm font-bold rounded-2xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg active:scale-[0.98] transition-all"
+                  disabled={loading || lockSeconds !== null}
+                  className={`w-full flex justify-center items-center gap-3 py-3.5 border border-transparent text-sm font-bold rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all 
+                    ${lockSeconds !== null ? "bg-gray-400 cursor-not-allowed opacity-80" : "bg-blue-600 hover:bg-blue-700"}`}
                 >
                   {loading ? (
                     <Loader2 className="animate-spin h-5 w-5" />
@@ -297,8 +306,9 @@ export default function ForgotPasswordPage() {
 
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full py-3.5 text-sm font-black rounded-2xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg active:scale-[0.98] transition-all"
+                  disabled={loading || lockSeconds !== null}
+                  className={`w-full py-3.5 text-sm font-black rounded-2xl text-white shadow-lg active:scale-[0.98] transition-all
+                    ${lockSeconds !== null ? "bg-gray-400 cursor-not-allowed opacity-80" : "bg-blue-600 hover:bg-blue-700"}`}
                 >
                   {loading ? (
                     <Loader2 className="animate-spin h-5 w-5 mx-auto" />
@@ -396,19 +406,6 @@ export default function ForgotPasswordPage() {
               Back to TPO Login
             </Link>
           </div>
-        </div>
-
-        <div className="absolute bottom-6 flex items-center justify-center gap-2 opacity-80">
-          <span className="text-[10px] font-bold text-black">
-            <a
-              href="https://cortinex-webstudio.vercel.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] font-bold text-black hover:underline"
-            >
-              Developed by .CXW Devs
-            </a>
-          </span>
         </div>
       </div>
     </div>

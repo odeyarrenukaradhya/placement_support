@@ -283,6 +283,15 @@ router.post('/verify-reset-otp', async (req, res) => {
     }
 
     const record = r.rows[0];
+    const user_id = record.user_id;
+
+    const lockRemaining = await getOtpLockRemaining(user_id);
+    if (lockRemaining) {
+      return res.status(429).json({
+        error: 'Too many OTP attempts',
+        retry_after_seconds: lockRemaining
+      });
+    }
 
     if (hashOTP(otp) !== record.otp_hash) {
       const f = await query(

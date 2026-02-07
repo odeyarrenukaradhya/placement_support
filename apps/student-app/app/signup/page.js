@@ -254,19 +254,6 @@ export default function StudentSignupPage() {
             </Link>
           </div>
         </div>
-
-        <div className="absolute bottom-6 flex items-center justify-center gap-2 opacity-80">
-          <span className="text-[10px] font-bold text-black">
-            <a
-              href="https://cortinex-webstudio.vercel.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] font-bold text-black hover:underline"
-            >
-              Developed by .CXW Devs
-            </a>
-          </span>
-        </div>
       </div>
     </div>
   );

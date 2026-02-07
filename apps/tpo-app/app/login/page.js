@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 /* 🔒 OTP LOCK (LOGIC ONLY) */
-const LOCK_KEY = "otp_lock_until_tpo";
+const LOCK_KEY = "otp_lock_until";
 
 function setOtpLock(seconds) {
   const until = Date.now() + seconds * 1000;
@@ -296,18 +296,6 @@ export default function TPOLoginPage() {
               Forgot password?
             </Link>
           </div>
-        </div>
-        <div className="absolute bottom-6 flex items-center justify-center gap-2 opacity-80">
-          <span className="text-[10px] font-bold text-black">
-            <a
-              href="https://cortinex-webstudio.vercel.app/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[10px] font-bold text-black hover:underline"
-            >
-              Developed by .CXW Devs
-            </a>
-          </span>
         </div>
       </div>
     </div>
