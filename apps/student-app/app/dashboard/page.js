@@ -74,7 +74,7 @@ export default function StudentDashboard() {
   // Combine and fetch all dashboard data
   useEffect(() => {
     let mounted = true;
-    
+
     async function loadAllData() {
       // Small delay to ensure localStorage token is available after reload
       if (!mounted) return;
@@ -106,7 +106,7 @@ export default function StudentDashboard() {
           return total > 0 ? (score / total) * 100 : 0;
         });
 
-        const avgAccuracy = testAccuracies.length 
+        const avgAccuracy = testAccuracies.length
           ? Math.round(testAccuracies.reduce((a, b) => a + b, 0) / testAccuracies.length)
           : 0;
 
@@ -121,8 +121,8 @@ export default function StudentDashboard() {
         const activity = (scoresData || []).map((s, i) => {
           const totalQuestions = Number(s.total_questions) || 0;
           const correctAnswers = Number(s.score) || 0;
-          const accuracy = totalQuestions > 0 
-            ? Math.round((correctAnswers / totalQuestions) * 100) 
+          const accuracy = totalQuestions > 0
+            ? Math.round((correctAnswers / totalQuestions) * 100)
             : 0;
 
           return {
@@ -175,7 +175,7 @@ export default function StudentDashboard() {
 
       {/* Courses and Calendar */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 flex flex-col h-[360px]">
+        <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border-4 border-slate-100 flex flex-col h-[360px] transition-all duration-300 hover:border-blue-200 hover:shadow-lg hover:-translate-y-1">
           <h2 className="text-lg font-black mb-4 text-slate-800 tracking-tight flex items-center gap-2">
             <span className="w-2 h-6 bg-blue-600 rounded-full"></span>
             Performance Analytics
@@ -194,87 +194,87 @@ export default function StudentDashboard() {
 
             {/* SVG Chart Area */}
             <div className="flex-1 relative flex flex-col h-full overflow-hidden">
-               <div className="flex-1 relative border-l border-b border-slate-100">
-                  {courseActivity.length > 1 ? (
-                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full p-2 overflow-visible">
-                      <defs>
-                        <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#2563eb" stopOpacity="1" />
-                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.8" />
-                        </linearGradient>
-                        <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
-                          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                      
-                      {/* Area Fill */}
-                      <path
-                        d={`M 0 100 ${courseActivity.map((test, i) => 
-                          `L ${(i / (courseActivity.length - 1)) * 100} ${100 - test.score}`
-                        ).join(' ')} L 100 100 Z`}
-                        fill="url(#areaGradient)"
-                      />
+              <div className="flex-1 relative border-l border-b border-slate-100">
+                {courseActivity.length > 1 ? (
+                  <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full p-2 overflow-visible">
+                    <defs>
+                      <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#2563eb" stopOpacity="1" />
+                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.8" />
+                      </linearGradient>
+                      <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.2" />
+                        <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
+                      </linearGradient>
+                    </defs>
 
-                      {/* Main Line */}
-                      <path
-                        d={courseActivity.map((test, i) => 
-                          `${i === 0 ? 'M' : 'L'} ${(i / (courseActivity.length - 1)) * 100} ${100 - test.score}`
-                        ).join(' ')}
-                        fill="none"
-                        stroke="url(#lineGradient)"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="animate-in fade-in duration-1000"
-                      />
+                    {/* Area Fill */}
+                    <path
+                      d={`M 0 100 ${courseActivity.map((test, i) =>
+                        `L ${(i / (courseActivity.length - 1)) * 100} ${100 - test.score}`
+                      ).join(' ')} L 100 100 Z`}
+                      fill="url(#areaGradient)"
+                    />
 
-                      {/* Data Points */}
-                      {courseActivity.map((test, i) => (
-                        <circle
-                          key={i}
-                          cx={(i / (courseActivity.length - 1)) * 100}
-                          cy={100 - test.score}
-                          r="2.5"
-                          fill="white"
-                          stroke="#2563eb"
-                          strokeWidth="2"
-                          className="hover:r-4 transition-all duration-300 cursor-pointer"
-                        >
-                          <title>{`${test.course}: ${test.score}%`}</title>
-                        </circle>
-                      ))}
-                    </svg>
-                  ) : courseActivity.length === 1 ? (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                       <div className="text-center">
-                          <div className="w-4 h-4 rounded-full bg-blue-600 animate-ping mb-4 mx-auto"></div>
-                          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{courseActivity[0].score}% Accuracy</p>
-                       </div>
-                    </div>
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-slate-300 font-bold uppercase tracking-widest text-xs">
-                      No Data Points Available
-                    </div>
-                  )}
-               </div>
+                    {/* Main Line */}
+                    <path
+                      d={courseActivity.map((test, i) =>
+                        `${i === 0 ? 'M' : 'L'} ${(i / (courseActivity.length - 1)) * 100} ${100 - test.score}`
+                      ).join(' ')}
+                      fill="none"
+                      stroke="url(#lineGradient)"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="animate-in fade-in duration-1000"
+                    />
 
-               {/* X-axis labels */}
-               <div className="h-6 flex justify-between px-0 pt-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
-                  {courseActivity.length > 0 ? (
-                    courseActivity.map((test, i) => (
-                      <span 
-                        key={i} 
-                        className="flex-1 text-center"
-                        title={test.course}
+                    {/* Data Points */}
+                    {courseActivity.map((test, i) => (
+                      <circle
+                        key={i}
+                        cx={(i / (courseActivity.length - 1)) * 100}
+                        cy={100 - test.score}
+                        r="2.5"
+                        fill="white"
+                        stroke="#2563eb"
+                        strokeWidth="1.5"
+                        className="hover:r-4 transition-all duration-300 cursor-pointer"
                       >
-                        {courseActivity.length > 5 ? `T${i + 1}` : test.course.split(' ')[0]}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="w-full text-center">Empty Horizon</span>
-                  )}
-               </div>
+                        <title>{`${test.course}: ${test.score}%`}</title>
+                      </circle>
+                    ))}
+                  </svg>
+                ) : courseActivity.length === 1 ? (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-4 h-4 rounded-full bg-blue-600 animate-ping mb-4 mx-auto"></div>
+                      <p className="text-xs font-black text-slate-400 uppercase tracking-widest">{courseActivity[0].score}% Accuracy</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-slate-300 font-bold uppercase tracking-widest text-xs">
+                    No Data Points Available
+                  </div>
+                )}
+              </div>
+
+              {/* X-axis labels */}
+              <div className="h-6 flex justify-between px-0 pt-2 text-[10px] font-black text-slate-400 uppercase tracking-tighter">
+                {courseActivity.length > 0 ? (
+                  courseActivity.map((test, i) => (
+                    <span
+                      key={i}
+                      className="flex-1 text-center"
+                      title={test.course}
+                    >
+                      {courseActivity.length > 5 ? `T${i + 1}` : test.course.split(' ')[0]}
+                    </span>
+                  ))
+                ) : (
+                  <span className="w-full text-center">Empty Horizon</span>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -295,61 +295,61 @@ export default function StudentDashboard() {
       {/* Circular Notifications Section */}
       <div className="mt-8">
         <div className="flex items-center justify-between mb-6 px-2">
-            <div>
-                <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
-                    <span className="w-2 h-6 bg-blue-600 rounded-full"></span>
-                    Recent Circulars
-                </h2>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 ml-4">Important updates from TPO office</p>
-            </div>
+          <div>
+            <h2 className="text-xl font-black text-slate-800 tracking-tight flex items-center gap-2">
+              <span className="w-2 h-6 bg-blue-600 rounded-full"></span>
+              Recent Circulars
+            </h2>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1 ml-4">Important updates from TPO office</p>
+          </div>
         </div>
 
         {circulars.length === 0 ? (
-            <div className="bg-white rounded-[2.5rem] p-12 border-2 border-dashed border-slate-100 flex flex-col items-center text-center">
-                <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200 mb-4">
-                    <Megaphone size={24} />
-                </div>
-                <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">No recent circulars</p>
+          <div className="bg-white rounded-[2.5rem] p-12 border-2 border-dashed border-slate-100 flex flex-col items-center text-center">
+            <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-200 mb-4">
+              <Megaphone size={24} />
             </div>
+            <p className="text-slate-400 text-sm font-bold uppercase tracking-widest">No recent circulars</p>
+          </div>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {circulars.slice(0, 3).map((circular) => (
-                    <ParticleCard key={circular.id} glowColor="59, 130, 246" particleCount={5}>
-                        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-50 hover:shadow-xl hover:shadow-blue-100/50 transition-all duration-300 flex flex-col h-full group">
-                            <div className="flex justify-between items-start mb-4">
-                                <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                                    <Megaphone size={18} />
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
-                                        {new Date(circular.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
-                                    </p>
-                                </div>
-                            </div>
-                            <h3 className="text-lg font-black text-slate-800 mb-3 tracking-tight group-hover:text-blue-600 transition-colors line-clamp-1">
-                                {circular.title}
-                            </h3>
-                            <p className="text-slate-500 text-sm font-medium leading-relaxed mb-6 line-clamp-3">
-                                {circular.content}
-                            </p>
-                            <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
-                                        <User size={12} />
-                                    </div>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{circular.creator_name || 'TPO Office'}</span>
-                                </div>
-                                <button 
-                                    onClick={() => setSelectedCircular(circular)}
-                                    className="text-xs font-black text-blue-600 uppercase tracking-widest hover:translate-x-1 transition-transform"
-                                >
-                                    Read More →
-                                </button>
-                            </div>
-                        </div>
-                    </ParticleCard>
-                ))}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {circulars.slice(0, 3).map((circular) => (
+              <ParticleCard key={circular.id} glowColor="59, 130, 246" particleCount={5}>
+                <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border-4 border-slate-50 transition-all duration-300 flex flex-col h-full group hover:shadow-xl hover:shadow-blue-100/50 hover:border-blue-200 hover:-translate-y-1">
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <Megaphone size={18} />
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">
+                        {new Date(circular.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}
+                      </p>
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-black text-slate-800 mb-3 tracking-tight group-hover:text-blue-600 transition-colors line-clamp-1">
+                    {circular.title}
+                  </h3>
+                  <p className="text-slate-500 text-sm font-medium leading-relaxed mb-6 line-clamp-3">
+                    {circular.content}
+                  </p>
+                  <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 bg-blue-100 rounded-lg flex items-center justify-center text-blue-600">
+                        <User size={12} />
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{circular.creator_name || 'TPO Office'}</span>
+                    </div>
+                    <button
+                      onClick={() => setSelectedCircular(circular)}
+                      className="text-xs font-black text-blue-600 uppercase tracking-widest hover:translate-x-1 transition-transform"
+                    >
+                      Read More →
+                    </button>
+                  </div>
+                </div>
+              </ParticleCard>
+            ))}
+          </div>
         )}
       </div>
 
@@ -361,7 +361,7 @@ export default function StudentDashboard() {
               <h3 className="text-xl font-black text-slate-900 tracking-tight">
                 {months[currentDate.getMonth()]} {selectedDate}
               </h3>
-              <button 
+              <button
                 onClick={() => setShowAddForm(false)}
                 className="p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400"
               >✕</button>
@@ -389,11 +389,10 @@ export default function StudentDashboard() {
                     .map((event) => (
                       <div
                         key={event.id}
-                        className={`flex items-center justify-between p-4 rounded-2xl border-l-4 group ${
-                          event.visibility === 'everyone' 
-                            ? 'bg-blue-50/50 border-blue-600' 
-                            : 'bg-indigo-50/50 border-indigo-600'
-                        }`}
+                        className={`flex items-center justify-between p-4 rounded-2xl border-l-4 group ${event.visibility === 'everyone'
+                          ? 'bg-blue-50/50 border-blue-600'
+                          : 'bg-indigo-50/50 border-indigo-600'
+                          }`}
                       >
                         <div className="flex flex-col">
                           <span className="text-sm font-bold text-slate-700">
@@ -483,51 +482,51 @@ export default function StudentDashboard() {
       {/* Circular Detail Modal */}
       {selectedCircular && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-md flex items-center justify-center z-[110] p-4 animate-in fade-in duration-300">
-            <div className="bg-white rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl animate-in zoom-in duration-300 max-h-[90vh] overflow-hidden flex flex-col relative">
-                <button 
-                    onClick={() => setSelectedCircular(null)}
-                    className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400"
-                >
-                    <X size={20} />
-                </button>
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-2xl w-full shadow-2xl animate-in zoom-in duration-300 max-h-[90vh] overflow-hidden flex flex-col relative">
+            <button
+              onClick={() => setSelectedCircular(null)}
+              className="absolute top-6 right-6 p-2 hover:bg-slate-100 rounded-xl transition-colors text-slate-400"
+            >
+              <X size={20} />
+            </button>
 
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
-                        <Megaphone size={28} />
-                    </div>
-                    <div>
-                        <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">
-                            {selectedCircular.title}
-                        </h3>
-                        <div className="flex items-center gap-3 mt-1">
-                            <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
-                                {new Date(selectedCircular.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
-                            </span>
-                            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                                By {selectedCircular.creator_name || 'TPO Office'}
-                            </span>
-                        </div>
-                    </div>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center shrink-0">
+                <Megaphone size={28} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight leading-tight">
+                  {selectedCircular.title}
+                </h3>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">
+                    {new Date(selectedCircular.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                  <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                    By {selectedCircular.creator_name || 'TPO Office'}
+                  </span>
                 </div>
-
-                <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar lg:pr-4">
-                    <div className="prose prose-slate max-w-none">
-                        <p className="text-slate-600 text-lg font-medium leading-relaxed whitespace-pre-wrap">
-                            {selectedCircular.content}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-slate-50 flex justify-end">
-                    <button
-                        onClick={() => setSelectedCircular(null)}
-                        className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-                    >
-                        Close Portal
-                    </button>
-                </div>
+              </div>
             </div>
+
+            <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar lg:pr-4">
+              <div className="prose prose-slate max-w-none">
+                <p className="text-slate-600 text-lg font-medium leading-relaxed whitespace-pre-wrap">
+                  {selectedCircular.content}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-8 pt-6 border-t border-slate-50 flex justify-end">
+              <button
+                onClick={() => setSelectedCircular(null)}
+                className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+              >
+                Close Portal
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </DashboardLayout>
@@ -537,7 +536,7 @@ export default function StudentDashboard() {
 function StatCard({ title, value }) {
   return (
     <ParticleCard glowColor="59, 130, 246" particleCount={8}>
-      <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-slate-50 hover:shadow-xl hover:shadow-blue-100/50 transition-all duration-300 group">
+      <div className="bg-white p-6 rounded-[2rem] shadow-sm border-4 border-slate-50 transition-all duration-300 group hover:shadow-xl hover:shadow-blue-100/50 hover:border-blue-200 hover:-translate-y-1">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 group-hover:text-blue-600 transition-colors">
           {title}
         </p>
@@ -573,9 +572,9 @@ function EventCalendar({
 
   const isToday = (day) => {
     const today = new Date();
-    return day === today.getDate() && 
-           currentDate.getMonth() === today.getMonth() && 
-           currentDate.getFullYear() === today.getFullYear();
+    return day === today.getDate() &&
+      currentDate.getMonth() === today.getMonth() &&
+      currentDate.getFullYear() === today.getFullYear();
   }
 
   const handleDateClick = (day) => {
@@ -584,7 +583,7 @@ function EventCalendar({
   };
 
   return (
-    <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-slate-100 h-[360px] flex flex-col">
+    <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border-4 border-slate-100 h-[360px] flex flex-col transition-all duration-300 hover:border-blue-200 hover:shadow-lg hover:-translate-y-1">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xl font-black text-slate-900 tracking-tight capitalize">
           {months[currentDate.getMonth()]} {currentDate.getFullYear()}
@@ -598,7 +597,7 @@ function EventCalendar({
             }
             className="p-3 hover:bg-blue-600 hover:text-white text-slate-400 rounded-2xl transition-all duration-300 shadow-sm"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           </button>
           <button
             onClick={() =>
@@ -608,7 +607,7 @@ function EventCalendar({
             }
             className="p-3 hover:bg-blue-600 hover:text-white text-slate-400 rounded-2xl transition-all duration-300 shadow-sm"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
           </button>
         </div>
       </div>
@@ -629,17 +628,16 @@ function EventCalendar({
           <button
             key={idx}
             onClick={() => day && handleDateClick(day)}
-            className={`flex items-center justify-center rounded-2xl text-xs font-bold transition-all duration-300 transform active:scale-90 ${
-              day === null
-                ? "opacity-0 cursor-default"
-                : isEventDay(day)
-                  ? events.some(e => e.date === day && e.month === currentDate.getMonth() && e.visibility === 'everyone')
-                    ? "bg-blue-600 text-white shadow-xl shadow-blue-200 ring-4 ring-blue-50"
-                    : "bg-indigo-600 text-white shadow-xl shadow-indigo-200 ring-4 ring-indigo-50"
-                  : isToday(day)
-                    ? "bg-blue-50 text-blue-700 ring-2 ring-blue-200"
-                    : "bg-slate-50 text-slate-600 hover:bg-white hover:shadow-lg hover:shadow-slate-100 hover:text-blue-600"
-            }`}
+            className={`flex items-center justify-center rounded-2xl text-xs font-bold transition-all duration-300 transform active:scale-90 ${day === null
+              ? "opacity-0 cursor-default"
+              : isEventDay(day)
+                ? events.some(e => e.date === day && e.month === currentDate.getMonth() && e.visibility === 'everyone')
+                  ? "bg-blue-600 text-white shadow-xl shadow-blue-200 ring-4 ring-blue-50"
+                  : "bg-indigo-600 text-white shadow-xl shadow-indigo-200 ring-4 ring-indigo-50"
+                : isToday(day)
+                  ? "bg-blue-50 text-blue-700 ring-2 ring-blue-200"
+                  : "bg-slate-50 text-slate-600 hover:bg-white hover:shadow-lg hover:shadow-slate-100 hover:text-blue-600"
+              }`}
           >
             {day}
           </button>

@@ -46,7 +46,11 @@ export default function ProfilePage() {
   }, []);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: name === "usn" ? value.toUpperCase() : value
+    });
     setError("");
     setSuccess("");
   };
@@ -160,7 +164,7 @@ export default function ProfilePage() {
                   name="usn"
                   value={formData.usn}
                   onChange={handleChange}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-black"
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-black uppercase"
                   placeholder="1XX20XX000"
                 />
               </div>
@@ -175,14 +179,19 @@ export default function ProfilePage() {
                   className="absolute left-4 top-3.5 text-slate-400"
                   size={20}
                 />
-                <input
-                  type="text"
+                <select
                   name="section"
                   value={formData.section}
                   onChange={handleChange}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-black"
-                  placeholder="A, B, C..."
-                />
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition appearance-none text-black"
+                >
+                  <option value="">Select Section</option>
+                  <option value="A">A</option>
+                  <option value="B">B</option>
+                  <option value="C">C</option>
+                  <option value="D">D</option>
+                  <option value="E">E</option>
+                </select>
               </div>
             </div>
 
@@ -219,14 +228,20 @@ export default function ProfilePage() {
                   className="absolute left-4 top-3.5 text-slate-400"
                   size={20}
                 />
-                <input
-                  type="text"
+                <select
                   name="branch"
                   value={formData.branch}
                   onChange={handleChange}
-                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition text-black"
-                  placeholder="CSE, ISE, ECE..."
-                />
+                  className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition appearance-none text-black"
+                >
+                  <option value="">Select Branch</option>
+                  <option value="CSE">Computer Science (CSE)</option>
+                  <option value="ISE">Information Science (ISE)</option>
+                  <option value="ECE">Electronics (ECE)</option>
+                  <option value="ME">Mechanical (ME)</option>
+                  <option value="CV">Civil (CV)</option>
+                  <option value="AI&ML">AI & Machine Learning</option>
+                </select>
               </div>
             </div>
           </div>
