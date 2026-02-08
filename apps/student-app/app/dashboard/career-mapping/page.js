@@ -273,7 +273,7 @@ const StudentCareer = () => {
                   return (
                     <div key={milestone.id} className="relative pl-12">
                       {/* Map Pin Marker */}
-                      <div className={`absolute left-[15px] top-5 z-10 bg-background ring-4 ring-background rounded-full ${milestone.completed ? 'text-blue-600' : 'text-slate-300'}`}>
+                      <div className={`absolute left-[-1px] top-5 z-10 bg-background ring-4 ring-background rounded-full ${milestone.completed ? 'text-blue-600' : 'text-slate-300'}`}>
                         <MapPin className={`w-7 h-7 ${milestone.completed ? 'fill-blue-100' : 'fill-slate-100'}`} />
                       </div>
 

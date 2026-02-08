@@ -280,7 +280,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* Calendar */}
-        <ParticleCard glowColor="29, 78, 216" particleCount={20}>
+        <ParticleCard glowColor="29, 78, 216" particleCount={20} className="transition-all duration-300 hover:-translate-y-1">
           <EventCalendar
             currentDate={currentDate}
             setCurrentDate={setCurrentDate}
@@ -314,8 +314,8 @@ export default function StudentDashboard() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {circulars.slice(0, 3).map((circular) => (
-              <ParticleCard key={circular.id} glowColor="59, 130, 246" particleCount={5}>
-                <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border-4 border-slate-50 transition-all duration-300 flex flex-col h-full group hover:shadow-xl hover:shadow-blue-100/50 hover:border-blue-200 hover:-translate-y-1">
+              <ParticleCard key={circular.id} glowColor="59, 130, 246" particleCount={5} className="transition-all duration-300 hover:-translate-y-1">
+                <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border-4 border-slate-50 transition-all duration-300 flex flex-col h-full group hover:shadow-xl hover:shadow-blue-100/50 hover:border-blue-200">
                   <div className="flex justify-between items-start mb-4">
                     <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl group-hover:bg-blue-600 group-hover:text-white transition-colors">
                       <Megaphone size={18} />
@@ -535,8 +535,8 @@ export default function StudentDashboard() {
 
 function StatCard({ title, value }) {
   return (
-    <ParticleCard glowColor="59, 130, 246" particleCount={8}>
-      <div className="bg-white p-6 rounded-[2rem] shadow-sm border-4 border-slate-50 transition-all duration-300 group hover:shadow-xl hover:shadow-blue-100/50 hover:border-blue-200 hover:-translate-y-1">
+    <ParticleCard glowColor="59, 130, 246" particleCount={8} className="transition-all duration-300 hover:-translate-y-1">
+      <div className="bg-white p-6 rounded-[2rem] shadow-sm border-4 border-slate-50 transition-all duration-300 group hover:shadow-xl hover:shadow-blue-100/50 hover:border-blue-200">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 group-hover:text-blue-600 transition-colors">
           {title}
         </p>
@@ -583,7 +583,7 @@ function EventCalendar({
   };
 
   return (
-    <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border-4 border-slate-100 h-[360px] flex flex-col transition-all duration-300 hover:border-blue-200 hover:shadow-lg hover:-translate-y-1">
+    <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border-4 border-slate-100 h-[360px] flex flex-col transition-all duration-300 hover:border-blue-200 hover:shadow-lg">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-xl font-black text-slate-900 tracking-tight capitalize">
           {months[currentDate.getMonth()]} {currentDate.getFullYear()}
