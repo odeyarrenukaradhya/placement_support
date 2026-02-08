@@ -102,19 +102,34 @@ router.get('/tpo/exam-stats/:examId', authenticateJWT, authorizeRoles('tpo'), as
     const { examId } = req.params;
     try {
         // Verify exam belongs to TPO's college
-        const examCheck = await query('SELECT id FROM exams WHERE id = $1 AND college_id = $2', [examId, req.user?.college_id]);
+        const examCheck = await query('SELECT id, title FROM exams WHERE id = $1 AND college_id = $2', [examId, req.user?.college_id]);
         if (examCheck.rows.length === 0) return res.status(403).json({ error: 'Unauthorized' });
 
         const attempts = await query(`
-            SELECT a.*, u.name as student_name, u.email as student_email
-            FROM attempts a
-            JOIN users u ON a.student_id = u.id
-            WHERE a.exam_id = $1
-            ORDER BY a.score DESC
+            SELECT * FROM (
+                SELECT DISTINCT ON (a.student_id) 
+                    a.id, a.exam_id, a.student_id, a.score, a.submitted_at, a.created_at,
+                    u.name as student_name, u.email as student_email, u.usn, u.year,
+                    COALESCE((
+                        SELECT string_agg(type || ' - ' || count, ', ')
+                        FROM (
+                            SELECT type, count(*) 
+                            FROM integrity_logs 
+                            WHERE attempt_id = a.id 
+                            GROUP BY type
+                        ) AS counts
+                    ), 'None') as integrity_summary
+                FROM attempts a
+                JOIN users u ON a.student_id = u.id
+                WHERE a.exam_id = $1
+                ORDER BY a.student_id, a.score DESC, a.submitted_at DESC
+            ) sub
+            ORDER BY score DESC
         `, [examId]);
 
         res.json({
             exam_id: examId,
+            exam_title: examCheck.rows[0].title,
             total_attempts: attempts.rows.length,
             results: attempts.rows
         });
